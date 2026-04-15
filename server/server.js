@@ -13,7 +13,7 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-const QUESTION_TIME = 10;
+const QUESTION_TIME = 15;
 
 let rooms = {};
 
@@ -21,13 +21,13 @@ io.on("connection", (socket) => {
   console.log("✅ User connected:", socket.id);
 
   // ================= CREATE ROOM =================
-  socket.on("createRoom", ({ username }) => {
+  socket.on("createRoom", ({ username, studentId }) => {
     console.log("🔥 CREATE ROOM FROM:", username);
 
     const roomId = Math.random().toString(36).substring(2, 7);
 
     const room = {
-      players: [{ id: socket.id, username, score: 0 }],
+      players: [{ id: socket.id, username, studentId, score: 0 }],
       question: generateQuestion(),
       index: 0,
       time: QUESTION_TIME

@@ -52,7 +52,7 @@ export default function App() {
       setResult(null);
     });
 
-    socket.on("timer", (t) => setTime((t / 10) * 100));
+    socket.on("timer", (t) => setTime((t / 15) * 100));
 
     socket.on("answerResult", ({ playerId, correct }) => {
       if (socket.id === playerId) {
@@ -87,7 +87,7 @@ export default function App() {
   // ================= SINGLE TIMER =================
   useEffect(() => {
     if (mode === "single" && state === "playing" && singleTime > 0) {
-      const timer = setTimeout(() => setSingleTime(t => t - 1), 100);
+      const timer = setTimeout(() => setSingleTime(t => Math.max(0, t - 1)), 150);
       return () => clearTimeout(timer);
     } else if (mode === "single" && singleTime <= 0 && !result) {
       setResult("Waktu Habis 😢");
