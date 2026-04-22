@@ -13,40 +13,36 @@ const io = new Server(server, {
   cors: { origin: "*" }
 });
 
-const QUESTION_TIME = 15;
-
 let rooms = {};
 
+// ================= CONNECTION =================
 io.on("connection", (socket) => {
   console.log("✅ User connected:", socket.id);
 
   // ================= CREATE ROOM =================
   socket.on("createRoom", ({ username, studentId }) => {
-    console.log("🔥 CREATE ROOM FROM:", username);
-
     const roomId = Math.random().toString(36).substring(2, 7);
 
-    const room = {
+    rooms[roomId] = {
+      hostId: socket.id, // 🔥 penting
+      status: "lobby",   // 🔥 lobby dulu
       players: [{ id: socket.id, username, studentId, score: 0 }],
-      question: generateQuestion(),
-      index: 0,
-      time: QUESTION_TIME
+      level: 1,
+      time: 60,
+      question: null,
+      interval: null
     };
-
-    rooms[roomId] = room;
 
     socket.join(roomId);
 
     socket.emit("roomJoined", {
       roomId,
-      state: room
+      state: rooms[roomId]
     });
   });
 
   // ================= JOIN ROOM =================
   socket.on("joinRoom", ({ roomId, username, studentId }) => {
-    console.log("🔥 JOIN ROOM:", roomId, username);
-
     const room = rooms[roomId];
     if (!room) return;
 
@@ -66,6 +62,30 @@ io.on("connection", (socket) => {
 
     io.to(roomId).emit("updateRoom", room);
   });
+
+  // ================= START GAME =================
+  socket.on("startGame", ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
+
+    // 🔥 hanya host boleh start
+    if (socket.id !== room.hostId) return;
+
+    room.status = "playing";
+    room.level = 1;
+
+    startLevel(roomId);
+  });
+
+  // ================= START LEVEL =================
+  socket.on("startLevel", ({ roomId }) => {
+  const room = rooms[roomId];
+  if (!room) return;
+
+  if (socket.id !== room.hostId) return; // 🔥 penting
+
+  startLevel(roomId);
+});
 
   // ================= ANSWER =================
   socket.on("answer", ({ roomId, answerIndex }) => {
@@ -91,32 +111,48 @@ io.on("connection", (socket) => {
 });
 
 
-// ================= TIMER =================
-setInterval(() => {
-  Object.keys(rooms).forEach(roomId => {
-    const room = rooms[roomId];
-    if (!room || room.finished) return;
+// ================= LEVEL SYSTEM =================
+function startLevel(roomId) {
+  const room = rooms[roomId];
+  if (!room) return;
 
+  // clear interval lama
+  if (room.interval) clearInterval(room.interval);
+
+  room.time = 60;
+  room.question = generateQuestion(room.level);
+
+  // kirim ke semua player
+  io.to(roomId).emit("levelStart", {
+    level: room.level,
+    time: room.time,
+    question: room.question
+  });
+
+  // timer level
+  room.interval = setInterval(() => {
     room.time--;
 
-    if (room.time <= 0) {
-      room.index++;
+    io.to(roomId).emit("timer", room.time);
 
-      if (room.index >= 3) {
-        room.finished = true;
+    if (room.time <= 0) {
+      clearInterval(room.interval);
+
+      room.level++;
+
+      if (room.level > 3) {
         io.to(roomId).emit("gameFinished", room.players);
       } else {
-        room.question = generateQuestion();
-        room.time = QUESTION_TIME;
-
-        io.to(roomId).emit("nextQuestion", room);
+        io.to(roomId).emit("levelFinished", {
+          nextLevel: room.level
+        });
       }
     }
+  }, 1000);
+}
 
-    io.to(roomId).emit("timer", room.time);
-  });
-}, 1000);
 
+// ================= START SERVER =================
 server.listen(3001, () => {
   console.log("🚀 Server running on http://localhost:3001");
 });

@@ -10,7 +10,7 @@ import HomeScreen from "./components/HomeScreen";
 const socket = io("http://localhost:3001");
 
 export default function App() {
-  const MAX = 3;
+  const MAX_SCORE = 45;
 
   const [state, setState] = useState("home");
   const [mode, setMode] = useState(null);
@@ -26,9 +26,20 @@ export default function App() {
   const [score, setScore] = useState(0);
 
   const [time, setTime] = useState(100);
-  const [singleTime, setSingleTime] = useState(100);
   const [result, setResult] = useState(null);
   const [pendingNext, setPendingNext] = useState(null);
+
+  const [level, setLevel] = useState(1);
+  const [questionCount, setQuestionCount] = useState(0);
+  const [levelTime, setLevelTime] = useState(60);
+
+  const [showLevelPopup, setShowLevelPopup] = useState(false);
+  const [nextLevel, setNextLevel] = useState(null);
+
+  const [multiLevel, setMultiLevel] = useState(1);
+  const [multiLevelTime, setMultiLevelTime] = useState(60);
+
+  const [isHost, setIsHost] = useState(false);
 
   function hasRequiredInfo() {
     return username.trim() !== "" && studentId.trim() !== "";
@@ -41,8 +52,11 @@ export default function App() {
     socket.on("roomJoined", (data) => {
       setRoomId(data.roomId);
       setRoom({ ...data.state });
+
+      setIsHost(socket.id === data.state.hostId); // 🔥 cek host
+
       setMode("multi");
-      setState("playing");
+      setState("lobby"); // 🔥 bukan playing
     });
 
     socket.on("updateRoom", (room) => setRoom({ ...room }));
@@ -52,7 +66,30 @@ export default function App() {
       setResult(null);
     });
 
-    socket.on("timer", (t) => setTime((t / 15) * 100));
+    socket.on("levelStart", ({ level, time, question }) => {
+      setMultiLevel(level);
+      setMultiLevelTime(time);
+
+      setRoom(prev => ({ ...prev, question }));
+
+      setState("paused");
+      setShowLevelPopup(true);
+      setNextLevel(level);
+    });
+
+    socket.on("timer", (t) => {
+      setMultiLevelTime(t);
+    });
+
+    socket.on("levelFinished", ({ nextLevel }) => {
+      if (nextLevel <= 3) {
+        setNextLevel(nextLevel);
+        setShowLevelPopup(true);
+        setState("paused");
+      } else {
+        setState("finished");
+      }
+    });
 
     socket.on("answerResult", ({ playerId, correct }) => {
       if (socket.id === playerId) {
@@ -68,6 +105,16 @@ export default function App() {
   }, []);
 
   // ================= RESULT ANIMATION =================
+  useEffect(() => {
+    if (state !== "playing" || mode !== "single") return;
+
+    const timer = setInterval(() => {
+      setLevelTime(t => t - 1);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [state, mode, level]);
+
   useEffect(() => {
     if (result && mode === "single" && pendingNext !== null) {
       const t = setTimeout(() => {
@@ -86,36 +133,69 @@ export default function App() {
 
   // ================= SINGLE TIMER =================
   useEffect(() => {
-    if (mode === "single" && state === "playing" && singleTime > 0) {
-      const timer = setTimeout(() => setSingleTime(t => Math.max(0, t - 1)), 150);
-      return () => clearTimeout(timer);
-    } else if (mode === "single" && singleTime <= 0 && !result) {
-      setResult("Waktu Habis 😢");
-      setPendingNext(false);
-    }
-  }, [singleTime, mode, state, result]);
+    if (levelTime !== 0) return;
+
+    setResult("Waktu Habis ⏱️");
+
+    setTimeout(() => {
+      if (level < 3) {
+        const next = level + 1;
+
+        setNextLevel(next);       // ✅ simpan level berikut
+        setShowLevelPopup(true);
+        setState("paused");       // ✅ pause
+
+      } else {
+        setState("finished");
+      }
+
+      setResult(null);
+    }, 1000);
+
+  }, [levelTime]);
+
+  function startLevel(lvl) {
+    setLevel(lvl);
+    setQuestionCount(0);
+    setLevelTime(60);
+
+    setQuestion(generateQuestion(lvl)); // ✅ generate di sini
+
+    setState("playing");
+    setShowLevelPopup(false);
+  }
 
   // ================= SINGLE =================
   function startSingle() {
     if (!hasRequiredInfo()) return alert("Isi data dulu!");
-
     setMode("single");
-    setState("playing");
-    setIndex(0);
+    setLevel(1);
+    setQuestionCount(0);
     setScore(0);
-    setSingleTime(100);
-    setQuestion(generateQuestion());
+    setNextLevel(1);          // ✅ benar
+    setShowLevelPopup(true);
+    setState("paused");       // ✅ jangan playing dulu
   }
 
   function nextSingle(correct) {
     if (correct) setScore(s => s + 1);
 
-    if (index + 1 < MAX) {
-      setIndex(i => i + 1);
-      setQuestion(generateQuestion());
-      setSingleTime(100);
+    if (questionCount + 1 < 15) {
+      setQuestionCount(q => q + 1);
+      setQuestion(generateQuestion(level));
+      setLevelTime(60);
     } else {
-      setState("finished");
+      // pindah level
+      if (level < 3) {
+        const next = level + 1;
+
+        setNextLevel(next);
+        setShowLevelPopup(true);
+        setState("paused");
+
+      } else {
+        setState("finished");
+      }
     }
   }
 
@@ -128,12 +208,18 @@ export default function App() {
   // ================= MULTI =================
   function createRoom() {
     if (!hasRequiredInfo()) return alert("Isi data dulu!");
+
     socket.emit("createRoom", { username, studentId });
   }
 
   function joinRoom() {
     if (!hasRequiredInfo() || !roomId) return alert("Lengkapi data!");
+
     socket.emit("joinRoom", { roomId, username, studentId });
+  }
+
+  function startMultiplayerGame() {
+    socket.emit("startGame", { roomId });
   }
 
   function answerMulti(i) {
@@ -212,7 +298,23 @@ export default function App() {
 
           <div className="w-full h-3 bg-white/50 rounded-full overflow-hidden">
             <div className="h-full bg-pink-500 transition-all duration-500"
-              style={{ width: `${mode === "multi" ? time : singleTime}%` }} />
+              style={{
+                width: `${mode === "single"
+                  ? (levelTime / 60) * 100
+                  : (multiLevelTime / 60) * 100
+                  }%`
+              }} />
+          </div>
+
+          <div className="text-center">
+            <p className="font-bold text-pink-600">
+              Level {mode === "single" ? level : multiLevel}
+            </p>            <p className="text-sm text-gray-500">
+              Soal {questionCount + 1} / 15
+            </p>
+            <p className="text-sm text-gray-500">
+              Time: {mode === "single" ? levelTime : multiLevelTime}s
+            </p>
           </div>
 
           <p className="text-sm text-gray-600">{username} ({studentId})</p>
@@ -220,8 +322,7 @@ export default function App() {
           {mode === "single" && question && (
             <>
               <h2 className="font-semibold">Score: {score}</h2>
-              <Cube3D cube={question.cube} />
-              {/* <QuestionCard cube={question.cube} /> */}
+              <Cube3D cube={question.cube} visible={question.visible} />              {/* <QuestionCard cube={question.cube} /> */}
               <AnswerOptions options={question.options} questionIndex={index} onSelect={answerSingle} />
             </>
           )}
@@ -239,8 +340,7 @@ export default function App() {
                 ))}
               </div>
 
-              <Cube3D cube={room.question.cube} />
-              {/* <QuestionCard cube={room.question.cube} /> */}
+              <Cube3D cube={room.question.cube} visible={room.question.visible} />             {/* <QuestionCard cube={room.question.cube} /> */}
               <AnswerOptions options={room.question.options} questionIndex={room.index ?? 0} onSelect={answerMulti} />
             </>
           )}
@@ -272,7 +372,7 @@ export default function App() {
             <h2 className="text-xl font-bold text-center">🎉 Finished</h2>
 
             {mode === "single" && (
-              <p className="text-center">{score}/{MAX}</p>
+              <p className="text-center">{score}/{MAX_SCORE}</p>
             )}
 
             {mode === "multi" && room && (
@@ -280,7 +380,7 @@ export default function App() {
                 {room.players.map(p => (
                   <div key={p.id} className="flex justify-between">
                     <span>{p.username} ({p.studentId})</span>
-                    <span>{p.score}</span>
+                    <p>{p.score}/{MAX_SCORE}</p>
                   </div>
                 ))}
               </div>
@@ -299,6 +399,79 @@ export default function App() {
               Back to Menu
             </button>
           </div>
+        </div>
+      )}
+
+      {showLevelPopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
+          <div className="bg-white p-8 rounded-3xl shadow-xl text-center animate-pop max-w-sm w-full">
+
+            <h2 className="text-2xl font-bold text-pink-600 mb-3">
+              {nextLevel === 1 ? "Siap Memulai Game?" : `Level ${nextLevel}`}
+            </h2>
+
+            <p className="text-gray-600 mb-6">
+              {nextLevel === 1
+                ? "Game akan dimulai. Fokus ya!"
+                : "Siap lanjut ke level berikutnya?"}
+            </p>
+
+            <button
+              onClick={() => {
+                if (mode === "single") {
+                  startLevel(nextLevel);
+                } else {
+                  if (isHost) {
+                    socket.emit("startLevel", { roomId });
+                  }
+                  setShowLevelPopup(false);
+                  setState("playing");
+                }
+              }}
+              className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2 rounded-xl transition"
+            >
+              {nextLevel === 1 ? "Mulai 🚀" : "Lanjut ➡️"}
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {state === "lobby" && room && (
+        <div className={card}>
+          <h2 className="text-xl font-bold text-center text-pink-600">
+            Room: {roomId}
+          </h2>
+
+          <p className="text-center text-sm text-gray-500 mb-2">
+            Menunggu pemain...
+          </p>
+
+          <div className="space-y-2">
+            {room.players.map(p => (
+              <div key={p.id} className="flex justify-between bg-white/80 p-3 rounded-xl">
+                <span>{p.username} ({p.studentId})</span>
+                {p.id === room.hostId && (
+                  <span className="text-xs text-pink-500">HOST</span>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* 🔥 tombol start hanya host */}
+          {isHost && (
+            <button
+              disabled={room.players.length < 2}
+              onClick={() => socket.emit("startGame", { roomId })}
+              className="bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl mt-4"
+            >
+              Start Game 🚀
+            </button>
+          )}
+
+          <button onClick={() => setState("menu")} className={btnBack}>
+            ← Back
+          </button>
         </div>
       )}
 
