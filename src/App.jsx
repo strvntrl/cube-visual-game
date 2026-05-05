@@ -1,8 +1,6 @@
 import { useState, useEffect } from "react";
 import { io } from "socket.io-client";
-import { generateQuestion } from "./logic/generator";
-import { isCorrect } from "./logic/validator";
-import Cube3D from "./components/Cube3D";
+import { questions } from "./data/questions";
 // import QuestionCard from "./components/QuestionCard";
 import AnswerOptions from "./components/AnswerOptions";
 import HomeScreen from "./components/HomeScreen";
@@ -154,13 +152,16 @@ export default function App() {
 
   }, [levelTime]);
 
+  function getQuestion(lvl, count) {
+    const pool = questions.filter(q => q.level === lvl);
+    return pool[count % pool.length];
+  }
+
   function startLevel(lvl) {
     setLevel(lvl);
     setQuestionCount(0);
     setLevelTime(60);
-
-    setQuestion(generateQuestion(lvl)); // ✅ generate di sini
-
+    setQuestion(getQuestion(lvl, 0));   // ← ganti generateQuestion
     setState("playing");
     setShowLevelPopup(false);
   }
@@ -172,37 +173,34 @@ export default function App() {
     setLevel(1);
     setQuestionCount(0);
     setScore(0);
-    setNextLevel(1);          // ✅ benar
+    setNextLevel(1);          
     setShowLevelPopup(true);
-    setState("paused");       // ✅ jangan playing dulu
+    setState("paused");      
+  }
+
+  function answerSingle(i) {
+    const correct = question.options[i].isCorrect;  // ← ganti isCorrect()
+    setResult(correct ? "Benar 💖" : "Salah 😢");
+    setPendingNext(correct);
   }
 
   function nextSingle(correct) {
     if (correct) setScore(s => s + 1);
 
     if (questionCount + 1 < 15) {
-      setQuestionCount(q => q + 1);
-      setQuestion(generateQuestion(level));
+      const next = questionCount + 1;
+      setQuestionCount(next);
+      setQuestion(getQuestion(level, next));   // ← ganti generateQuestion
       setLevelTime(60);
     } else {
-      // pindah level
       if (level < 3) {
-        const next = level + 1;
-
-        setNextLevel(next);
+        setNextLevel(level + 1);
         setShowLevelPopup(true);
         setState("paused");
-
       } else {
         setState("finished");
       }
     }
-  }
-
-  function answerSingle(i) {
-    const correct = isCorrect(question, i);
-    setResult(correct ? "Benar 💖" : "Salah 😢");
-    setPendingNext(correct);
   }
 
   // ================= MULTI =================
@@ -322,8 +320,19 @@ export default function App() {
           {mode === "single" && question && (
             <>
               <h2 className="font-semibold">Score: {score}</h2>
-              <Cube3D cube={question.cube} visible={question.visible} />              {/* <QuestionCard cube={question.cube} /> */}
-              <AnswerOptions options={question.options} questionIndex={index} onSelect={answerSingle} />
+              <div className="bg-white rounded-2xl shadow-xl p-4">
+                <img
+                  src={question.cubeImage}
+                  alt="Gambar kubus soal"
+                  className="w-64 h-64 object-contain"
+                />
+              </div>
+
+              <AnswerOptions
+                options={question.options}
+                questionIndex={questionCount}
+                onSelect={answerSingle}
+              />
             </>
           )}
 
@@ -340,8 +349,18 @@ export default function App() {
                 ))}
               </div>
 
-              <Cube3D cube={room.question.cube} visible={room.question.visible} />             {/* <QuestionCard cube={room.question.cube} /> */}
-              <AnswerOptions options={room.question.options} questionIndex={room.index ?? 0} onSelect={answerMulti} />
+              <div className="bg-white rounded-2xl shadow-xl p-4">
+                <img
+                  src={room.question.cubeImage}
+                  alt="Gambar kubus soal"
+                  className="w-64 h-64 object-contain"
+                />
+              </div>
+              <AnswerOptions 
+                options={room.question.options} 
+                questionIndex={room.index ?? 0} 
+                onSelect={answerMulti} 
+              />
             </>
           )}
         </div>
