@@ -27,23 +27,23 @@ export const questions = [
   {
     id: 3,
     level: 1,
-    cubeImage: "/images/level1/soal1-kubus.png",   
+    cubeImage: "/images/level1/soal3-kubus.png",   
     options: [
-      { id: "A", image: "/images/level1/soal1-A.png", isCorrect: true },
-      { id: "B", image: "/images/level1/soal1-B.png", isCorrect: false  },
-      { id: "C", image: "/images/level1/soal1-C.png", isCorrect: false },
-      { id: "D", image: "/images/level1/soal1-D.png", isCorrect: false },
+      { id: "A", image: "/images/level1/soal3-A.png", isCorrect: true },
+      { id: "B", image: "/images/level1/soal3-B.png", isCorrect: false  },
+      { id: "C", image: "/images/level1/soal3-C.png", isCorrect: false },
+      { id: "D", image: "/images/level1/soal3-D.png", isCorrect: false },
     ],
   },
   {
     id: 4,
     level: 1,
-    cubeImage: "/images/level1/soal2-kubus.png",
+    cubeImage: "/images/level1/soal4-kubus.png",
     options: [
-      { id: "A", image: "/images/level1/soal2-A.png", isCorrect: false },
-      { id: "B", image: "/images/level1/soal2-B.png", isCorrect: false },
-      { id: "C", image: "/images/level1/soal2-C.png", isCorrect: false  },
-      { id: "D", image: "/images/level1/soal2-D.png", isCorrect: true },
+      { id: "A", image: "/images/level1/soal4-A.png", isCorrect: false },
+      { id: "B", image: "/images/level1/soal4-B.png", isCorrect: false },
+      { id: "C", image: "/images/level1/soal4-C.png", isCorrect: false  },
+      { id: "D", image: "/images/level1/soal4-D.png", isCorrect: true },
     ],
   },
   {
