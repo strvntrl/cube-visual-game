@@ -21,8 +21,8 @@ export default function App() {
  
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
-  const scoreRef = useRef(0); 
-  
+  const scoreRef = useRef(0);
+ 
   const [time, setTime] = useState(100);
   const [result, setResult] = useState(null);
   const [pendingNext, setPendingNext] = useState(null);
@@ -36,11 +36,17 @@ export default function App() {
  
   const [multiLevel, setMultiLevel] = useState(1);
   const [multiLevelTime, setMultiLevelTime] = useState(60);
+  const [multiQuestionCount, setMultiQuestionCount] = useState(0); 
  
   const [isHost, setIsHost] = useState(false);
  
   function hasRequiredInfo() {
     return username.trim() !== "" && studentId.trim() !== "";
+  }
+ 
+  function getQuestion(lvl, count) {
+    const pool = questions.filter(q => q.level === lvl);
+    return pool[count % pool.length];
   }
  
   // ================= SOCKET =================
@@ -62,10 +68,12 @@ export default function App() {
       setResult(null);
     });
  
-    socket.on("levelStart", ({ level, time, question }) => {
+    socket.on("levelStart", ({ level, time }) => {
       setMultiLevel(level);
       setMultiLevelTime(time);
-      setRoom(prev => ({ ...prev, question }));
+      setMultiQuestionCount(0);
+      const firstQuestion = getQuestion(level, 0);
+      setRoom(prev => ({ ...prev, question: firstQuestion }));
       setState("paused");
       setShowLevelPopup(true);
       setNextLevel(level);
@@ -98,7 +106,7 @@ export default function App() {
  
   }, []);
  
-  // ================= RESULT ANIMATION =================
+  // ================= TIMER SINGLE =================
   useEffect(() => {
     if (state !== "playing" || mode !== "single") return;
  
@@ -125,7 +133,7 @@ export default function App() {
     }
   }, [result]);
  
-  // ================= SINGLE TIMER =================
+  // ================= SINGLE TIMER HABIS =================
   useEffect(() => {
     if (levelTime !== 0) return;
  
@@ -152,16 +160,11 @@ export default function App() {
         username,
         studentId,
         mode: "single",
-        score: scoreRef.current, 
+        score: scoreRef.current,
         maxScore: MAX_SCORE,
       });
     }
   }, [state]);
- 
-  function getQuestion(lvl, count) {
-    const pool = questions.filter(q => q.level === lvl);
-    return pool[count % pool.length];
-  }
  
   function startLevel(lvl) {
     setLevel(lvl);
@@ -175,7 +178,7 @@ export default function App() {
   // ================= SINGLE =================
   function startSingle() {
     if (!hasRequiredInfo()) return alert("Isi data dulu!");
-    scoreRef.current = 0; 
+    scoreRef.current = 0;
     setMode("single");
     setLevel(1);
     setQuestionCount(0);
@@ -204,7 +207,7 @@ export default function App() {
     if (correct) {
       setScore(s => {
         const next = s + 1;
-        scoreRef.current = next; 
+        scoreRef.current = next;
         return next;
       });
     }
@@ -236,12 +239,13 @@ export default function App() {
     socket.emit("joinRoom", { roomId, username, studentId });
   }
  
-  function startMultiplayerGame() {
-    socket.emit("startGame", { roomId });
-  }
- 
   function answerMulti(i) {
-    socket.emit("answer", { roomId, answerIndex: i });
+    const correct = room.question.options[i].isCorrect;
+    socket.emit("answer", { roomId, answerIndex: i, correct });
+ 
+    const next = multiQuestionCount + 1;
+    setMultiQuestionCount(next);
+    setRoom(prev => ({ ...prev, question: getQuestion(multiLevel, next) }));
   }
  
   // ================= COMPONENT STYLE =================
@@ -495,7 +499,7 @@ export default function App() {
             ))}
           </div>
 
-          {/* 🔥 tombol start hanya host */}
+          {/* tombol start hanya host */}
           {isHost && (
             <button
               disabled={room.players.length < 2}

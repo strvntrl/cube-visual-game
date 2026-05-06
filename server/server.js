@@ -90,17 +90,18 @@ io.on("connection", (socket) => {
   });
 
   // ================= ANSWER (MULTI) =================
-  socket.on("answer", ({ roomId, answerIndex }) => {
+  socket.on("answer", ({ roomId, answerIndex, correct }) => {
     const room = rooms[roomId];
     if (!room) return;
 
     const player = room.players.find(p => p.id === socket.id);
-    const correct = room.question.answer === answerIndex;
-
-    if (correct) player.score += 1;
+    if (correct) player.score += 1; 
 
     io.to(roomId).emit("updateRoom", room);
-    io.to(roomId).emit("answerResult", { playerId: socket.id, correct });
+    io.to(roomId).emit("answerResult", {
+      playerId: socket.id,
+      correct
+    });
   });
 
   // ================= LOG JAWABAN (SINGLE & MULTI) =================
