@@ -2,7 +2,7 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
-import { google } from "googleapis"; // ← fix: pakai import bukan require
+import { google } from "googleapis"; 
 
 const app = express();
 app.use(cors());
@@ -21,9 +21,6 @@ const auth = new google.auth.GoogleAuth({
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
-// ← fix: hanya ID-nya saja, bukan URL lengkap
-// URL kamu: .../spreadsheets/d/1xsDIsqeLdNOz4yjzDUeX0EqONV1vJyZi-DddEPlMAIE/edit...
-// ID-nya:
 const SPREADSHEET_ID = "1xsDIsqeLdNOz4yjzDUeX0EqONV1vJyZi-DddEPlMAIE";
 
 async function appendToSheet(values) {
@@ -114,10 +111,10 @@ io.on("connection", (socket) => {
       studentId,
       mode,
       level,
-      soalIndex + 1,  // tampilkan nomor soal mulai dari 1
+      soalIndex + 1,  
       jawaban,
       benar ? "TRUE" : "FALSE",
-      ""              // skor_akhir kosong, diisi saat FINISH
+      ""              
     ]);
   });
 
@@ -151,8 +148,6 @@ function startLevel(roomId) {
 
   room.time = 60;
 
-  // ← hapus generateQuestion, soal di-handle client
-  // server hanya urus timer & skor multiplayer
   io.to(roomId).emit("levelStart", {
     level: room.level,
     time: room.time,
