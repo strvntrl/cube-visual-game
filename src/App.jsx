@@ -1,84 +1,80 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react"; 
 import { io } from "socket.io-client";
 import { questions } from "./data/questions";
-// import QuestionCard from "./components/QuestionCard";
 import AnswerOptions from "./components/AnswerOptions";
 import HomeScreen from "./components/HomeScreen";
-
+ 
 const socket = io("http://localhost:3001");
-
+ 
 export default function App() {
   const MAX_SCORE = 45;
-
+ 
   const [state, setState] = useState("home");
   const [mode, setMode] = useState(null);
-
+ 
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState("");
   const [roomId, setRoomId] = useState("");
-
+ 
   const [room, setRoom] = useState(null);
   const [question, setQuestion] = useState(null);
-
+ 
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
-
+  const scoreRef = useRef(0); 
+  
   const [time, setTime] = useState(100);
   const [result, setResult] = useState(null);
   const [pendingNext, setPendingNext] = useState(null);
-
+ 
   const [level, setLevel] = useState(1);
   const [questionCount, setQuestionCount] = useState(0);
   const [levelTime, setLevelTime] = useState(60);
-
+ 
   const [showLevelPopup, setShowLevelPopup] = useState(false);
   const [nextLevel, setNextLevel] = useState(null);
-
+ 
   const [multiLevel, setMultiLevel] = useState(1);
   const [multiLevelTime, setMultiLevelTime] = useState(60);
-
+ 
   const [isHost, setIsHost] = useState(false);
-
+ 
   function hasRequiredInfo() {
     return username.trim() !== "" && studentId.trim() !== "";
   }
-
+ 
   // ================= SOCKET =================
   useEffect(() => {
     socket.off();
-
+ 
     socket.on("roomJoined", (data) => {
       setRoomId(data.roomId);
       setRoom({ ...data.state });
-
-      setIsHost(socket.id === data.state.hostId); // 🔥 cek host
-
+      setIsHost(socket.id === data.state.hostId);
       setMode("multi");
-      setState("lobby"); // 🔥 bukan playing
+      setState("lobby");
     });
-
+ 
     socket.on("updateRoom", (room) => setRoom({ ...room }));
-
+ 
     socket.on("nextQuestion", (room) => {
       setRoom({ ...room });
       setResult(null);
     });
-
+ 
     socket.on("levelStart", ({ level, time, question }) => {
       setMultiLevel(level);
       setMultiLevelTime(time);
-
       setRoom(prev => ({ ...prev, question }));
-
       setState("paused");
       setShowLevelPopup(true);
       setNextLevel(level);
     });
-
+ 
     socket.on("timer", (t) => {
       setMultiLevelTime(t);
     });
-
+ 
     socket.on("levelFinished", ({ nextLevel }) => {
       if (nextLevel <= 3) {
         setNextLevel(nextLevel);
@@ -88,31 +84,31 @@ export default function App() {
         setState("finished");
       }
     });
-
+ 
     socket.on("answerResult", ({ playerId, correct }) => {
       if (socket.id === playerId) {
         setResult(correct ? "Benar 💖" : "Salah 😢");
       }
     });
-
+ 
     socket.on("gameFinished", (players) => {
       setRoom(prev => ({ ...prev, players }));
       setState("finished");
     });
-
+ 
   }, []);
-
+ 
   // ================= RESULT ANIMATION =================
   useEffect(() => {
     if (state !== "playing" || mode !== "single") return;
-
+ 
     const timer = setInterval(() => {
       setLevelTime(t => t - 1);
     }, 1000);
-
+ 
     return () => clearInterval(timer);
   }, [state, mode, level]);
-
+ 
   useEffect(() => {
     if (result && mode === "single" && pendingNext !== null) {
       const t = setTimeout(() => {
@@ -122,84 +118,101 @@ export default function App() {
       }, 900);
       return () => clearTimeout(t);
     }
-
+ 
     if (result && mode === "multi") {
       const t = setTimeout(() => setResult(null), 900);
       return () => clearTimeout(t);
     }
   }, [result]);
-
+ 
   // ================= SINGLE TIMER =================
   useEffect(() => {
     if (levelTime !== 0) return;
-
+ 
     setResult("Waktu Habis ⏱️");
-
+ 
     setTimeout(() => {
       if (level < 3) {
         const next = level + 1;
-
-        setNextLevel(next);       // ✅ simpan level berikut
+        setNextLevel(next);
         setShowLevelPopup(true);
-        setState("paused");       // ✅ pause
-
+        setState("paused");
       } else {
         setState("finished");
       }
-
       setResult(null);
     }, 1000);
-
+ 
   }, [levelTime]);
-
+ 
+  // ================= LOG FINISH =================
+  useEffect(() => {
+    if (state === "finished" && mode === "single") {
+      socket.emit("logFinish", {
+        username,
+        studentId,
+        mode: "single",
+        score: scoreRef.current, 
+        maxScore: MAX_SCORE,
+      });
+    }
+  }, [state]);
+ 
   function getQuestion(lvl, count) {
     const pool = questions.filter(q => q.level === lvl);
     return pool[count % pool.length];
   }
-
+ 
   function startLevel(lvl) {
     setLevel(lvl);
     setQuestionCount(0);
     setLevelTime(60);
-    setQuestion(getQuestion(lvl, 0));   // ← ganti generateQuestion
+    setQuestion(getQuestion(lvl, 0));
     setState("playing");
     setShowLevelPopup(false);
   }
-
+ 
   // ================= SINGLE =================
   function startSingle() {
     if (!hasRequiredInfo()) return alert("Isi data dulu!");
+    scoreRef.current = 0; 
     setMode("single");
     setLevel(1);
     setQuestionCount(0);
     setScore(0);
-    setNextLevel(1);          
+    setNextLevel(1);
     setShowLevelPopup(true);
-    setState("paused");      
+    setState("paused");
   }
-
+ 
   function answerSingle(i) {
-    const correct = question.options[i].isCorrect;  // ← ganti isCorrect()
+    const correct = question.options[i].isCorrect;
     socket.emit("logAnswer", {
       username,
       studentId,
       mode: "single",
       level,
       soalIndex: questionCount,
-      jawaban: question.options[i].id,  // "A"/"B"/"C"/"D"
+      jawaban: question.options[i].id,
       benar: correct,
     });
     setResult(correct ? "Benar 💖" : "Salah 😢");
     setPendingNext(correct);
   }
-
+ 
   function nextSingle(correct) {
-    if (correct) setScore(s => s + 1);
-
+    if (correct) {
+      setScore(s => {
+        const next = s + 1;
+        scoreRef.current = next; 
+        return next;
+      });
+    }
+ 
     if (questionCount + 1 < 15) {
       const next = questionCount + 1;
       setQuestionCount(next);
-      setQuestion(getQuestion(level, next));   // ← ganti generateQuestion
+      setQuestion(getQuestion(level, next));
       setLevelTime(60);
     } else {
       if (level < 3) {
@@ -211,33 +224,29 @@ export default function App() {
       }
     }
   }
-
+ 
   // ================= MULTI =================
   function createRoom() {
     if (!hasRequiredInfo()) return alert("Isi data dulu!");
-
     socket.emit("createRoom", { username, studentId });
   }
-
+ 
   function joinRoom() {
     if (!hasRequiredInfo() || !roomId) return alert("Lengkapi data!");
-
     socket.emit("joinRoom", { roomId, username, studentId });
   }
-
+ 
   function startMultiplayerGame() {
     socket.emit("startGame", { roomId });
   }
-
+ 
   function answerMulti(i) {
     socket.emit("answer", { roomId, answerIndex: i });
   }
-
+ 
   // ================= COMPONENT STYLE =================
   const card = "w-full max-w-md p-6 sm:p-8 rounded-3xl bg-white/70 backdrop-blur-xl shadow-xl flex flex-col gap-4 animate-fade";
-
   const input = "w-full p-3 rounded-xl border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-300";
-
   const btnPrimary = "bg-pink-500 hover:bg-pink-600 text-white py-2 rounded-xl transition";
   const btnSecondary = "bg-purple-400 hover:bg-purple-500 text-white py-2 rounded-xl transition";
   const btnBack = "text-sm text-gray-500 mt-2";
