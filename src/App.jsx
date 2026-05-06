@@ -180,6 +180,15 @@ export default function App() {
 
   function answerSingle(i) {
     const correct = question.options[i].isCorrect;  // ← ganti isCorrect()
+    socket.emit("logAnswer", {
+      username,
+      studentId,
+      mode: "single",
+      level,
+      soalIndex: questionCount,
+      jawaban: question.options[i].id,  // "A"/"B"/"C"/"D"
+      benar: correct,
+    });
     setResult(correct ? "Benar 💖" : "Salah 😢");
     setPendingNext(correct);
   }
