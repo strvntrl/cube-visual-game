@@ -75,8 +75,8 @@ export default function App() {
       setMultiQuestionCount(0);
       const firstQuestion = getQuestion(level, 0);
       setRoom(prev => ({ ...prev, question: firstQuestion }));
-      setState("paused");
-      setShowLevelPopup(true);
+      setShowLevelPopup(false);
+      setState("playing");
       setNextLevel(level);
     });
  
@@ -462,12 +462,8 @@ export default function App() {
               onClick={() => {
                 if (mode === "single") {
                   startLevel(nextLevel);
-                } else {
-                  if (isHost) {
-                    socket.emit("startLevel", { roomId });
-                  }
-                  setShowLevelPopup(false);
-                  setState("playing");
+                } else if (isHost) {
+                  socket.emit("startLevel", { roomId });
                 }
               }}
               className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2 rounded-xl transition"
@@ -505,7 +501,7 @@ export default function App() {
             <button
               disabled={room.players.length < 2}
               onClick={() => socket.emit("startGame", { roomId })}
-              className="bg-green-500 hover:bg-green-600 text-white py-2 rounded-xl mt-4"
+              className="bg-pink-500 hover:bg-pink-600 text-white py-2 rounded-xl mt-4"
             >
               Start Game 🚀
             </button>
