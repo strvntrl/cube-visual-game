@@ -4,7 +4,8 @@ import { questions } from "./data/questions";
 import AnswerOptions from "./components/AnswerOptions";
 import HomeScreen from "./components/HomeScreen";
  
-const socket = io("http://localhost:3001");
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
+const socket = io(SERVER_URL);
  
 export default function App() {
   const MAX_SCORE = 45;
