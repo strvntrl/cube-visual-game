@@ -577,7 +577,7 @@ export default function App() {
             <p className="text-gray-600 mb-2">Kamu selesai level {multiNextLevel - 1}!</p>
             <p className="text-gray-600 mb-6">Siap lanjut ke level berikutnya?</p>
             <button onClick={() => startMultiLevel(multiNextLevel)} className={btnPrimary}>
-              Lanjut ➡️
+              Lanjut
             </button>
           </div>
         </div>
