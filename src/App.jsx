@@ -95,11 +95,7 @@ export default function App() {
       }
     });
  
-    socket.on("answerResult", ({ playerId, correct }) => {
-      if (socket.id === playerId) {
-        setResult(correct ? "Benar 💖" : "Salah 😢");
-      }
-    });
+    socket.on("answerResult", () => {});
  
     socket.on("gameFinished", (players) => {
       setRoom(prev => ({ ...prev, players }));
@@ -245,10 +241,15 @@ export default function App() {
   function answerMulti(i) {
     const correct = room.question.options[i].isCorrect;
     socket.emit("answer", { roomId, answerIndex: i, correct });
- 
-    const next = multiQuestionCount + 1;
-    setMultiQuestionCount(next);
-    setRoom(prev => ({ ...prev, question: getQuestion(multiLevel, next) }));
+
+    setResult(correct ? "Benar 💖" : "Salah 😢"); 
+
+    setTimeout(() => {
+      const next = multiQuestionCount + 1;
+      setMultiQuestionCount(next);
+      setRoom(prev => ({ ...prev, question: getQuestion(multiLevel, next) }));
+      setResult(null); 
+    }, 900);
   }
  
   // ================= COMPONENT STYLE =================
@@ -333,7 +334,7 @@ export default function App() {
             <p className="font-bold text-pink-600">
               Level {mode === "single" ? level : multiLevel}
             </p>            <p className="text-sm text-gray-500">
-              Soal {questionCount + 1} / 15
+              Soal {(mode === "single" ? questionCount : multiQuestionCount) + 1} / 15
             </p>
             <p className="text-sm text-gray-500">
               Time: {mode === "single" ? levelTime : multiLevelTime}s
