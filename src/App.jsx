@@ -383,7 +383,7 @@ export default function App() {
               </div>
               <AnswerOptions 
                 options={room.question.options} 
-                questionIndex={room.index ?? 0} 
+                questionIndex={multiQuestionCount}
                 onSelect={answerMulti} 
               />
             </>
