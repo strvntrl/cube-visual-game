@@ -34,7 +34,7 @@ async function appendToSheet(values) {
     const sheets = google.sheets({ version: "v4", auth: client });
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A:DM", // ← diperlebar untuk 95 kolom
+      range: "Sheet1!A:DM", 
       valueInputOption: "USER_ENTERED",
       requestBody: { values: [values] },
     });
@@ -119,16 +119,15 @@ io.on("connection", (socket) => {
       mode,
     ];
 
-    // 3 level × 15 soal = 45 soal, tiap soal 2 kolom (jawaban + status)
     for (let lvl = 1; lvl <= 3; lvl++) {
       for (let soal = 1; soal <= 15; soal++) {
         const found = answers.find(a => a.level === lvl && a.soal === soal);
-        row.push(found ? found.jawaban : "-");                    // kolom jawaban
-        row.push(found ? (found.benar ? "TRUE" : "FALSE") : "-"); // kolom status
+        row.push(found ? found.jawaban : "-");                   
+        row.push(found ? (found.benar ? "TRUE" : "FALSE") : "-"); 
       }
     }
 
-    row.push(`${score}/${maxScore}`); // kolom skor_akhir
+    row.push(`${score}/${maxScore}`); 
 
     await appendToSheet(row);
   });
