@@ -16,25 +16,33 @@ const io = new Server(server, {
 let rooms = {};
 
 // ================= GOOGLE SHEETS =================
-const auth = new google.auth.GoogleAuth({
-  credentials: process.env.GOOGLE_CREDENTIALS
-    ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
-    : undefined,
-  keyFile: process.env.GOOGLE_CREDENTIALS
-    ? undefined
-    : "./credentials.json",
-  scopes: ["https://www.googleapis.com/auth/spreadsheets"],
-});
-
-const SPREADSHEET_ID = "1xsDIsqeLdNOz4yjzDUeX0EqONV1vJyZi-DddEPlMAIE";
+let auth;
+try {
+  auth = new google.auth.GoogleAuth({
+    credentials: process.env.GOOGLE_CREDENTIALS
+      ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
+      : undefined,
+    keyFile: process.env.GOOGLE_CREDENTIALS
+      ? undefined
+      : "./server/credentials.json",
+    scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+  });
+  console.log("✅ Google Auth berhasil");
+} catch (e) {
+  console.error("❌ Google Auth gagal:", e.message);
+}
 
 async function appendToSheet(values) {
+  if (!auth) {
+    console.error("❌ Auth tidak tersedia, skip simpan ke Sheets");
+    return;
+  }
   try {
     const client = await auth.getClient();
     const sheets = google.sheets({ version: "v4", auth: client });
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A:DM", 
+      range: "Sheet1!A:DM",
       valueInputOption: "USER_ENTERED",
       requestBody: { values: [values] },
     });
