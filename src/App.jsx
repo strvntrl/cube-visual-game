@@ -23,9 +23,8 @@ export default function App() {
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
-  const answersRef = useRef([]); 
+  const answersRef = useRef([]);
  
-  const [time, setTime] = useState(100);
   const [result, setResult] = useState(null);
   const [pendingNext, setPendingNext] = useState(null);
  
@@ -37,8 +36,10 @@ export default function App() {
   const [nextLevel, setNextLevel] = useState(null);
  
   const [multiLevel, setMultiLevel] = useState(1);
+  const multiLevelRef = useRef(1); 
   const [multiLevelTime, setMultiLevelTime] = useState(60);
   const [multiQuestionCount, setMultiQuestionCount] = useState(0);
+  const multiQuestionCountRef = useRef(0); 
  
   const [isHost, setIsHost] = useState(false);
  
@@ -63,17 +64,16 @@ export default function App() {
       setState("lobby");
     });
  
-    socket.on("updateRoom", (room) => setRoom({ ...room }));
- 
-    socket.on("nextQuestion", (room) => {
-      setRoom({ ...room });
-      setResult(null);
+    socket.on("updateRoom", (updatedRoom) => {
+      setRoom(prev => ({ ...prev, players: updatedRoom.players }));
     });
  
     socket.on("levelStart", ({ level, time }) => {
       setMultiLevel(level);
+      multiLevelRef.current = level; 
       setMultiLevelTime(time);
       setMultiQuestionCount(0);
+      multiQuestionCountRef.current = 0; 
       const firstQuestion = getQuestion(level, 0);
       setRoom(prev => ({ ...prev, question: firstQuestion }));
       setShowLevelPopup(false);
@@ -124,11 +124,6 @@ export default function App() {
       }, 900);
       return () => clearTimeout(t);
     }
- 
-    if (result && mode === "multi") {
-      const t = setTimeout(() => setResult(null), 900);
-      return () => clearTimeout(t);
-    }
   }, [result]);
  
   // ================= SINGLE TIMER HABIS =================
@@ -160,7 +155,7 @@ export default function App() {
         mode: "single",
         score: scoreRef.current,
         maxScore: MAX_SCORE,
-        answers: answersRef.current, 
+        answers: answersRef.current,
       });
     }
   }, [state]);
@@ -178,7 +173,7 @@ export default function App() {
   function startSingle() {
     if (!hasRequiredInfo()) return alert("Isi data dulu!");
     scoreRef.current = 0;
-    answersRef.current = []; 
+    answersRef.current = [];
     setMode("single");
     setLevel(1);
     setQuestionCount(0);
@@ -190,14 +185,12 @@ export default function App() {
  
   function answerSingle(i) {
     const correct = question.options[i].isCorrect;
- 
     answersRef.current.push({
       level,
       soal: questionCount + 1,
       jawaban: question.options[i].id,
       benar: correct,
     });
- 
     setResult(correct ? "Benar 💖" : "Salah 😢");
     setPendingNext(correct);
   }
@@ -241,14 +234,20 @@ export default function App() {
   function answerMulti(i) {
     const correct = room.question.options[i].isCorrect;
     socket.emit("answer", { roomId, answerIndex: i, correct });
-
-    setResult(correct ? "Benar 💖" : "Salah 😢"); 
-
+ 
+    setResult(correct ? "Benar 💖" : "Salah 😢");
+ 
     setTimeout(() => {
-      const next = multiQuestionCount + 1;
+      const next = multiQuestionCountRef.current + 1;
+      multiQuestionCountRef.current = next;
       setMultiQuestionCount(next);
-      setRoom(prev => ({ ...prev, question: getQuestion(multiLevel, next) }));
-      setResult(null); 
+ 
+      if (next < 15) {
+        const lvl = multiLevelRef.current;
+        setRoom(prev => ({ ...prev, question: getQuestion(lvl, next) }));
+      }
+ 
+      setResult(null);
     }, 900);
   }
  
