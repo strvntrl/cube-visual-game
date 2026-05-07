@@ -36,7 +36,7 @@ const SPREADSHEET_ID = "1xsDIsqeLdNOz4yjzDUeX0EqONV1vJyZi-DddEPlMAIE";
 
 async function appendToSheet(values) {
   if (!auth) {
-    console.error("❌ Auth tidak tersedia, skip simpan ke Sheets");
+    console.error("❌ Auth tidak tersedia");
     return;
   }
   try {
@@ -54,29 +54,17 @@ async function appendToSheet(values) {
   }
 }
 
-// ================= HELPER: cek apakah semua pemain sudah 15 jawaban =================
-function checkAllPlayersFinished(room) {
-  return room.players.every(p => (p.answerCount || 0) >= 15);
-}
-
-function advanceLevel(roomId) {
-  const room = rooms[roomId];
-  if (!room) return;
-
-  if (room.interval) clearInterval(room.interval);
-
-  room.level++;
-
-  if (room.level > 3) {
-  io.to(roomId).emit("gameFinished", room.players.map(p => ({
-    id: p.id,
-    username: p.username,
-    studentId: p.studentId,
-    score: p.score,
-  })));
-  } else {
-    io.to(roomId).emit("levelFinished", { nextLevel: room.level });
-  }
+function safeRoomData(room) {
+  return {
+    hostId: room.hostId,
+    status: room.status,
+    players: room.players.map(p => ({
+      id: p.id,
+      username: p.username,
+      studentId: p.studentId,
+      score: p.score,
+    })),
+  };
 }
 
 // ================= CONNECTION =================
@@ -90,11 +78,7 @@ io.on("connection", (socket) => {
     rooms[roomId] = {
       hostId: socket.id,
       status: "lobby",
-      players: [{ id: socket.id, username, studentId, score: 0, answerCount: 0 }],
-      level: 1,
-      time: 60,
-      question: null,
-      interval: null
+      players: [{ id: socket.id, username, studentId, score: 0, finished: false }],
     };
 
     socket.join(roomId);
@@ -104,9 +88,9 @@ io.on("connection", (socket) => {
   // ================= JOIN ROOM =================
   socket.on("joinRoom", ({ roomId, username, studentId }) => {
     const room = rooms[roomId];
-    if (!room) return;
+    if (!room) return socket.emit("error", "Room tidak ditemukan");
 
-    room.players.push({ id: socket.id, username, studentId, score: 0, answerCount: 0 });
+    room.players.push({ id: socket.id, username, studentId, score: 0, finished: false });
     socket.join(roomId);
     socket.emit("roomJoined", { roomId, state: safeRoomData(room) });
     io.to(roomId).emit("updateRoom", safeRoomData(room));
@@ -118,18 +102,12 @@ io.on("connection", (socket) => {
     if (!room || socket.id !== room.hostId) return;
 
     room.status = "playing";
-    room.level = 1;
-    startLevel(roomId);
+    room.players.forEach(p => { p.score = 0; p.finished = false; });
+
+    io.to(roomId).emit("startSignal");
   });
 
-  // ================= START LEVEL =================
-  socket.on("startLevel", ({ roomId }) => {
-    const room = rooms[roomId];
-    if (!room || socket.id !== room.hostId) return;
-    startLevel(roomId);
-  });
-
-  // ================= ANSWER (MULTI) =================
+  // ================= ANSWER — catat skor =================
   socket.on("answer", ({ roomId, answerIndex, correct }) => {
     const room = rooms[roomId];
     if (!room) return;
@@ -137,16 +115,27 @@ io.on("connection", (socket) => {
     const player = room.players.find(p => p.id === socket.id);
     if (!player) return;
 
-    player.answerCount = (player.answerCount || 0) + 1;
-    console.log(`📝 ${player.username} answerCount: ${player.answerCount}`);
     if (correct) player.score += 1;
+  });
 
-    io.to(roomId).emit("updateRoom", safeRoomData(room));
-    io.to(roomId).emit("answerResult", { playerId: socket.id, correct });
+  // ================= PLAYER FINISHED — pemain selesai semua soal =================
+  socket.on("playerFinished", ({ roomId }) => {
+    const room = rooms[roomId];
+    if (!room) return;
 
-    if (checkAllPlayersFinished(room)) {
-      console.log("✅ Semua selesai, advance level");
-      advanceLevel(roomId);
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) player.finished = true;
+
+    console.log(`✅ ${player?.username} selesai. Total selesai: ${room.players.filter(p => p.finished).length}/${room.players.length}`);
+
+    if (room.players.every(p => p.finished)) {
+      console.log("🎉 Semua pemain selesai!");
+      io.to(roomId).emit("gameFinished", room.players.map(p => ({
+        id: p.id,
+        username: p.username,
+        studentId: p.studentId,
+        score: p.score,
+      })));
     }
   });
 
@@ -174,50 +163,27 @@ io.on("connection", (socket) => {
   // ================= DISCONNECT =================
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
+
+    for (const roomId in rooms) {
+      const room = rooms[roomId];
+      const idx = room.players.findIndex(p => p.id === socket.id);
+      if (idx !== -1) {
+        room.players.splice(idx, 1);
+        if (room.players.length === 0) {
+          delete rooms[roomId];
+        } else {
+          io.to(roomId).emit("updateRoom", safeRoomData(room));
+          if (room.status === "playing" && room.players.every(p => p.finished)) {
+            io.to(roomId).emit("gameFinished", room.players.map(p => ({
+              id: p.id, username: p.username, studentId: p.studentId, score: p.score,
+            })));
+          }
+        }
+        break;
+      }
+    }
   });
 });
-
-// ================= LEVEL SYSTEM (MULTI) =================
-function startLevel(roomId) {
-  const room = rooms[roomId];
-  if (!room) return;
-
-  if (room.interval) clearInterval(room.interval);
-
-  room.players.forEach(p => p.answerCount = 0);
-
-  room.time = 60;
-
-  io.to(roomId).emit("levelStart", {
-    level: room.level,
-    time: room.time,
-  });
-
-  room.interval = setInterval(() => {
-    room.time--;
-    io.to(roomId).emit("timer", room.time);
-
-    if (room.time <= 0) {
-      console.log(`⏱️ Timer habis di level ${room.level}`);
-      advanceLevel(roomId);
-    }
-  }, 1000);
-}
-
-// ================= HELPER: kirim room data yang aman =================
-function safeRoomData(room) {
-  return {
-    hostId: room.hostId,
-    status: room.status,
-    level: room.level,
-    players: room.players.map(p => ({
-      id: p.id,
-      username: p.username,
-      studentId: p.studentId,
-      score: p.score,
-    })),
-  };
-}
 
 // ================= START SERVER =================
 const PORT = process.env.PORT || 3001;

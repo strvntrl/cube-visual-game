@@ -9,6 +9,7 @@ const socket = io(SERVER_URL);
  
 export default function App() {
   const MAX_SCORE = 45;
+  const TIME_PER_SOAL = 60; // ← 60 detik per soal
  
   const [state, setState] = useState("home");
   const [mode, setMode] = useState(null);
@@ -18,9 +19,9 @@ export default function App() {
   const [roomId, setRoomId] = useState("");
  
   const [room, setRoom] = useState(null);
+  const roomRef = useRef(null);
   const [question, setQuestion] = useState(null);
  
-  const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
   const answersRef = useRef([]);
@@ -28,20 +29,34 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [pendingNext, setPendingNext] = useState(null);
  
+  // single
   const [level, setLevel] = useState(1);
   const [questionCount, setQuestionCount] = useState(0);
-  const [levelTime, setLevelTime] = useState(60);
+  const [levelTime, setLevelTime] = useState(TIME_PER_SOAL);
  
   const [showLevelPopup, setShowLevelPopup] = useState(false);
   const [nextLevel, setNextLevel] = useState(null);
  
+  // multi
   const [multiLevel, setMultiLevel] = useState(1);
-  const multiLevelRef = useRef(1); 
-  const [multiLevelTime, setMultiLevelTime] = useState(60);
+  const multiLevelRef = useRef(1);
   const [multiQuestionCount, setMultiQuestionCount] = useState(0);
-  const multiQuestionCountRef = useRef(0); 
- 
+  const multiQuestionCountRef = useRef(0);
+  const [multiSoalTime, setMultiSoalTime] = useState(TIME_PER_SOAL); // ← timer per soal
+  const multiSoalTimerRef = useRef(null); // ← ref untuk interval timer soal
+  const [showMultiLevelPopup, setShowMultiLevelPopup] = useState(false);
+  const [multiNextLevel, setMultiNextLevel] = useState(null);
+
   const [isHost, setIsHost] = useState(false);
+
+  const usernameRef = useRef("");
+  const studentIdRef = useRef("");
+  const modeRef = useRef(null);
+
+  useEffect(() => { usernameRef.current = username; }, [username]);
+  useEffect(() => { studentIdRef.current = studentId; }, [studentId]);
+  useEffect(() => { modeRef.current = mode; }, [mode]);
+  useEffect(() => { roomRef.current = room; }, [room]);
  
   function hasRequiredInfo() {
     return username.trim() !== "" && studentId.trim() !== "";
@@ -51,6 +66,67 @@ export default function App() {
     const pool = questions.filter(q => q.level === lvl);
     return pool[count % pool.length];
   }
+
+  // ================= MULTI SOAL TIMER =================
+  function startMultiSoalTimer() {
+    // clear timer lama
+    if (multiSoalTimerRef.current) clearInterval(multiSoalTimerRef.current);
+
+    setMultiSoalTime(TIME_PER_SOAL);
+
+    multiSoalTimerRef.current = setInterval(() => {
+      setMultiSoalTime(t => {
+        if (t <= 1) {
+          // waktu habis — skip soal ini (tidak jawab)
+          clearInterval(multiSoalTimerRef.current);
+          handleMultiNextSoal(false, true); // skip = true
+          return TIME_PER_SOAL;
+        }
+        return t - 1;
+      });
+    }, 1000);
+  }
+
+  function stopMultiSoalTimer() {
+    if (multiSoalTimerRef.current) clearInterval(multiSoalTimerRef.current);
+  }
+
+  // ================= MULTI: logika ganti soal =================
+  function handleMultiNextSoal(correct, skipped = false) {
+    const currentCount = multiQuestionCountRef.current;
+    const currentLevel = multiLevelRef.current;
+    const next = currentCount + 1;
+
+    if (next < 15) {
+      // lanjut soal berikutnya di level ini
+      multiQuestionCountRef.current = next;
+      setMultiQuestionCount(next);
+      const nextQ = getQuestion(currentLevel, next);
+      setRoom(prev => {
+        const updated = { ...prev, question: nextQ };
+        roomRef.current = updated;
+        return updated;
+      });
+      startMultiSoalTimer(); // ← reset timer soal
+    } else {
+      // selesai 15 soal di level ini
+      stopMultiSoalTimer();
+      multiQuestionCountRef.current = 0;
+      setMultiQuestionCount(0);
+
+      if (currentLevel < 3) {
+        // tampilkan popup level berikutnya
+        const nl = currentLevel + 1;
+        setMultiNextLevel(nl);
+        setShowMultiLevelPopup(true);
+        setState("paused");
+      } else {
+        // selesai semua level
+        socket.emit("playerFinished", { roomId });
+        setState("waiting"); // tunggu pemain lain
+      }
+    }
+  }
  
   // ================= SOCKET =================
   useEffect(() => {
@@ -59,62 +135,64 @@ export default function App() {
     socket.on("roomJoined", (data) => {
       setRoomId(data.roomId);
       setRoom({ ...data.state });
+      roomRef.current = { ...data.state };
       setIsHost(socket.id === data.state.hostId);
       setMode("multi");
+      modeRef.current = "multi";
       setState("lobby");
     });
  
     socket.on("updateRoom", (updatedRoom) => {
-      setRoom(prev => ({ ...prev, players: updatedRoom.players }));
+      setRoom(prev => {
+        const updated = { ...prev, players: updatedRoom.players };
+        roomRef.current = updated;
+        return updated;
+      });
     });
- 
-    socket.on("levelStart", ({ level, time }) => {
-      setMultiLevel(level);
-      multiLevelRef.current = level; 
-      setMultiLevelTime(time);
-      setMultiQuestionCount(0);
-      multiQuestionCountRef.current = 0; 
-      const firstQuestion = getQuestion(level, 0);
-      setRoom(prev => ({ ...prev, question: firstQuestion }));
-      setShowLevelPopup(false);
-      setState("playing");
-      setNextLevel(level);
-    });
- 
-    socket.on("timer", (t) => {
-      console.log("⏱️ timer:", t); 
-      setMultiLevelTime(t);
-    });
- 
-    socket.on("levelFinished", ({ nextLevel }) => {
-      if (nextLevel <= 3) {
-        setNextLevel(nextLevel);
-        setShowLevelPopup(true);
-        setState("paused");
-      } else {
-        setState("finished");
-      }
-    });
- 
-    socket.on("answerResult", () => {});
- 
+
+    // server bilang semua pemain selesai
     socket.on("gameFinished", (players) => {
-      setRoom(prev => ({ ...prev, players }));
+      stopMultiSoalTimer();
+      setRoom(prev => {
+        const updated = { ...prev, players };
+        roomRef.current = updated;
+        return updated;
+      });
       setState("finished");
+    });
+
+    // server suruh mulai (dari host)
+    socket.on("startSignal", () => {
+      // mulai level 1
+      answersRef.current = [];
+      multiLevelRef.current = 1;
+      setMultiLevel(1);
+      multiQuestionCountRef.current = 0;
+      setMultiQuestionCount(0);
+      const firstQ = getQuestion(1, 0);
+      setRoom(prev => {
+        const updated = { ...prev, question: firstQ };
+        roomRef.current = updated;
+        return updated;
+      });
+      setShowMultiLevelPopup(false);
+      setState("playing");
+      startMultiSoalTimer();
     });
  
   }, []);
  
-  // ================= TIMER SINGLE =================
+  // ================= TIMER SINGLE (per soal) =================
   useEffect(() => {
     if (state !== "playing" || mode !== "single") return;
  
+    setLevelTime(TIME_PER_SOAL);
     const timer = setInterval(() => {
       setLevelTime(t => t - 1);
     }, 1000);
  
     return () => clearInterval(timer);
-  }, [state, mode, level]);
+  }, [state, mode, level, questionCount]); // ← reset saat soal berganti
  
   useEffect(() => {
     if (result && mode === "single" && pendingNext !== null) {
@@ -127,34 +205,55 @@ export default function App() {
     }
   }, [result]);
  
-  // ================= SINGLE TIMER HABIS =================
+  // ================= SINGLE TIMER SOAL HABIS =================
   useEffect(() => {
     if (levelTime !== 0) return;
- 
+    if (mode !== "single") return;
+
+    // skip soal — tidak jawab
+    answersRef.current.push({
+      level,
+      soal: questionCount + 1,
+      jawaban: "-",
+      benar: false,
+    });
+
     setResult("Waktu Habis ⏱️");
- 
     setTimeout(() => {
-      if (level < 3) {
-        const next = level + 1;
-        setNextLevel(next);
-        setShowLevelPopup(true);
-        setState("paused");
-      } else {
-        setState("finished");
-      }
       setResult(null);
-    }, 1000);
- 
+      nextSingle(false); // skip, tidak benar
+    }, 900);
+
   }, [levelTime]);
  
   // ================= LOG FINISH =================
   useEffect(() => {
-    if (state === "finished" && mode === "single") {
+    if (state !== "finished") return;
+
+    const currentMode = modeRef.current;
+    const currentRoom = roomRef.current;
+
+    if (currentMode === "single") {
       socket.emit("logFinish", {
-        username,
-        studentId,
+        username: usernameRef.current,
+        studentId: studentIdRef.current,
         mode: "single",
         score: scoreRef.current,
+        maxScore: MAX_SCORE,
+        answers: answersRef.current,
+      });
+    }
+
+    if (currentMode === "multi") {
+      const myScore = currentRoom?.players?.find(
+        p => p.username === usernameRef.current && p.studentId === studentIdRef.current
+      )?.score ?? 0;
+
+      socket.emit("logFinish", {
+        username: usernameRef.current,
+        studentId: studentIdRef.current,
+        mode: "multi",
+        score: myScore,
         maxScore: MAX_SCORE,
         answers: answersRef.current,
       });
@@ -164,7 +263,6 @@ export default function App() {
   function startLevel(lvl) {
     setLevel(lvl);
     setQuestionCount(0);
-    setLevelTime(60);
     setQuestion(getQuestion(lvl, 0));
     setState("playing");
     setShowLevelPopup(false);
@@ -176,6 +274,7 @@ export default function App() {
     scoreRef.current = 0;
     answersRef.current = [];
     setMode("single");
+    modeRef.current = "single";
     setLevel(1);
     setQuestionCount(0);
     setScore(0);
@@ -209,7 +308,6 @@ export default function App() {
       const next = questionCount + 1;
       setQuestionCount(next);
       setQuestion(getQuestion(level, next));
-      setLevelTime(60);
     } else {
       if (level < 3) {
         setNextLevel(level + 1);
@@ -234,24 +332,49 @@ export default function App() {
  
   function answerMulti(i) {
     if (multiQuestionCountRef.current >= 15) return;
+    if (state !== "playing") return;
 
     const correct = room.question.options[i].isCorrect;
     socket.emit("answer", { roomId, answerIndex: i, correct });
 
+    answersRef.current.push({
+      level: multiLevelRef.current,
+      soal: multiQuestionCountRef.current + 1,
+      jawaban: room.question.options[i].id,
+      benar: correct,
+    });
+
+    if (correct) {
+      setScore(s => {
+        const next = s + 1;
+        scoreRef.current = next;
+        return next;
+      });
+    }
+
+    stopMultiSoalTimer();
     setResult(correct ? "Benar 💖" : "Salah 😢");
 
     setTimeout(() => {
-      const next = multiQuestionCountRef.current + 1;
-      multiQuestionCountRef.current = next;
-      setMultiQuestionCount(next);
-
-      if (next < 15) {
-        const lvl = multiLevelRef.current;
-        setRoom(prev => ({ ...prev, question: getQuestion(lvl, next) }));
-      }
-
       setResult(null);
+      handleMultiNextSoal(correct);
     }, 900);
+  }
+
+  function startMultiLevel(lvl) {
+    multiLevelRef.current = lvl;
+    setMultiLevel(lvl);
+    multiQuestionCountRef.current = 0;
+    setMultiQuestionCount(0);
+    const firstQ = getQuestion(lvl, 0);
+    setRoom(prev => {
+      const updated = { ...prev, question: firstQ };
+      roomRef.current = updated;
+      return updated;
+    });
+    setShowMultiLevelPopup(false);
+    setState("playing");
+    startMultiSoalTimer();
   }
  
   // ================= COMPONENT STYLE =================
@@ -274,15 +397,12 @@ export default function App() {
       {state === "menu" && (
         <div className={`${card} animate-fade`}>
           <h1 className="text-3xl font-bold text-center text-pink-600 mb-4">Cube Visual Game</h1>
-
           <button onClick={() => setState("single-form")} className={btnPrimary}>
             Single Player 🎮
           </button>
-
           <button onClick={() => setState("multiplayer")} className={btnSecondary}>
             Multiplayer 👥
           </button>
-
           <button onClick={() => setState("home")} className={btnBack}>← Back</button>
         </div>
       )}
@@ -293,18 +413,14 @@ export default function App() {
           <h2 className="text-xl font-semibold text-center text-purple-600">
             {state === "single-form" ? "Single Player" : "Multiplayer"}
           </h2>
-
           <input placeholder="Nama" className={input}
             value={username} onChange={(e) => setUsername(e.target.value)} />
-
           <input placeholder="Student ID" className={input}
             value={studentId} onChange={(e) => setStudentId(e.target.value)} />
-
           {state === "multiplayer" && (
             <input placeholder="Room ID" className={input}
               value={roomId} onChange={(e) => setRoomId(e.target.value)} />
           )}
-
           {state === "single-form" ? (
             <button onClick={startSingle} className={btnPrimary}>Start Game</button>
           ) : (
@@ -313,7 +429,6 @@ export default function App() {
               <button onClick={joinRoom} className={btnSecondary}>Join Room</button>
             </>
           )}
-
           <button onClick={() => setState("menu")} className={btnBack}>← Back</button>
         </div>
       )}
@@ -326,20 +441,21 @@ export default function App() {
             <div className="h-full bg-pink-500 transition-all duration-500"
               style={{
                 width: `${mode === "single"
-                  ? (levelTime / 60) * 100
-                  : (multiLevelTime / 60) * 100
-                  }%`
+                  ? (levelTime / TIME_PER_SOAL) * 100
+                  : (multiSoalTime / TIME_PER_SOAL) * 100
+                }%`
               }} />
           </div>
 
           <div className="text-center">
             <p className="font-bold text-pink-600">
               Level {mode === "single" ? level : multiLevel}
-            </p>            <p className="text-sm text-gray-500">
+            </p>
+            <p className="text-sm text-gray-500">
               Soal {(mode === "single" ? questionCount : multiQuestionCount) + 1} / 15
             </p>
             <p className="text-sm text-gray-500">
-              Time: {mode === "single" ? levelTime : multiLevelTime}s
+              Time: {mode === "single" ? levelTime : multiSoalTime}s
             </p>
           </div>
 
@@ -349,48 +465,29 @@ export default function App() {
             <>
               <h2 className="font-semibold">Score: {score}</h2>
               <div className="bg-white rounded-2xl shadow-xl p-4">
-                <img
-                  src={question.cubeImage}
-                  alt="Gambar kubus soal"
-                  className="w-64 h-64 object-contain"
-                />
+                <img src={question.cubeImage} alt="Soal" className="w-64 h-64 object-contain" />
               </div>
-
-              <AnswerOptions
-                options={question.options}
-                questionIndex={questionCount}
-                onSelect={answerSingle}
-              />
+              <AnswerOptions options={question.options} questionIndex={questionCount} onSelect={answerSingle} />
             </>
           )}
 
           {mode === "multi" && room && room.question && (
             <>
-              <h2 className="font-semibold">Room: {roomId}</h2>
-
-              <div className="bg-white/60 rounded-xl p-3 w-full text-sm space-y-2">
-                {room.players.map(p => (
-                  <div key={p.id} className="flex flex-col gap-1 sm:flex-row sm:justify-between sm:items-center bg-white/80 rounded-xl p-3">
-                    <span className="text-sm font-medium text-gray-700">{p.username} ({p.studentId})</span>
-                    <span className="text-sm font-semibold text-pink-600">{p.score}</span>
-                  </div>
-                ))}
-              </div>
-
               <div className="bg-white rounded-2xl shadow-xl p-4">
-                <img
-                  src={room.question.cubeImage}
-                  alt="Gambar kubus soal"
-                  className="w-64 h-64 object-contain"
-                />
+                <img src={room.question.cubeImage} alt="Soal" className="w-64 h-64 object-contain" />
               </div>
-              <AnswerOptions 
-                options={room.question.options} 
-                questionIndex={multiQuestionCount}
-                onSelect={answerMulti} 
-              />
+              <AnswerOptions options={room.question.options} questionIndex={multiQuestionCount} onSelect={answerMulti} />
             </>
           )}
+        </div>
+      )}
+
+      {/* WAITING — selesai duluan, tunggu pemain lain */}
+      {state === "waiting" && (
+        <div className={card}>
+          <h2 className="text-xl font-bold text-center text-pink-600">🎉 Kamu Selesai!</h2>
+          <p className="text-center text-gray-500">Menunggu pemain lain selesai...</p>
+          <p className="text-center font-semibold">Score: {score}/{MAX_SCORE}</p>
         </div>
       )}
 
@@ -405,43 +502,49 @@ export default function App() {
 
       {/* FINISH */}
       {state === "finished" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm" onClick={() => {
-          setState("menu");
-          setScore(0);
-          setIndex(0);
-          setRoom(null);
-          setMode(null);
-          setUsername("");
-          setStudentId("");
-          setRoomId("");
-        }}>
+        <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm"
+          onClick={() => {
+            setState("menu");
+            setScore(0);
+            scoreRef.current = 0;
+            answersRef.current = [];
+            setRoom(null);
+            roomRef.current = null;
+            setMode(null);
+            modeRef.current = null;
+            setUsername("");
+            setStudentId("");
+            setRoomId("");
+            stopMultiSoalTimer();
+          }}>
           <div className={card} onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-xl font-bold text-center">🎉 Finished</h2>
-
-            {mode === "single" && (
-              <p className="text-center">{score}/{MAX_SCORE}</p>
-            )}
-
+            <h2 className="text-xl font-bold text-center">🎉 Game Selesai!</h2>
+            {mode === "single" && <p className="text-center">{score}/{MAX_SCORE}</p>}
             {mode === "multi" && room && (
-              <div>
-                {room.players.map(p => (
-                  <div key={p.id} className="flex justify-between">
-                    <span>{p.username} ({p.studentId})</span>
-                    <p>{p.score}/{MAX_SCORE}</p>
-                  </div>
-                ))}
+              <div className="space-y-2">
+                {[...room.players]
+                  .sort((a, b) => b.score - a.score)
+                  .map((p, i) => (
+                    <div key={p.id} className="flex justify-between bg-white/80 p-3 rounded-xl">
+                      <span>{i + 1}. {p.username} ({p.studentId})</span>
+                      <span className="font-semibold text-pink-600">{p.score}/{MAX_SCORE}</span>
+                    </div>
+                  ))}
               </div>
             )}
-
             <button onClick={() => {
               setState("menu");
               setScore(0);
-              setIndex(0);
+              scoreRef.current = 0;
+              answersRef.current = [];
               setRoom(null);
+              roomRef.current = null;
               setMode(null);
+              modeRef.current = null;
               setUsername("");
               setStudentId("");
               setRoomId("");
+              stopMultiSoalTimer();
             }} className={btnPrimary}>
               Back to Menu
             </button>
@@ -449,72 +552,60 @@ export default function App() {
         </div>
       )}
 
-      {showLevelPopup && (
+      {/* LEVEL POPUP SINGLE */}
+      {showLevelPopup && mode === "single" && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
           <div className="bg-white p-8 rounded-3xl shadow-xl text-center animate-pop max-w-sm w-full">
-
             <h2 className="text-2xl font-bold text-pink-600 mb-3">
               {nextLevel === 1 ? "Siap Memulai Game?" : `Level ${nextLevel}`}
             </h2>
-
             <p className="text-gray-600 mb-6">
-              {nextLevel === 1
-                ? "Game akan dimulai. Fokus ya!"
-                : "Siap lanjut ke level berikutnya?"}
+              {nextLevel === 1 ? "Game akan dimulai. Fokus ya!" : "Siap lanjut ke level berikutnya?"}
             </p>
-
-            <button
-              onClick={() => {
-                if (mode === "single") {
-                  startLevel(nextLevel);
-                } else if (isHost) {
-                  socket.emit("startLevel", { roomId });
-                }
-              }}
-              className="bg-pink-500 hover:bg-pink-600 text-white px-6 py-2 rounded-xl transition"
-            >
+            <button onClick={() => startLevel(nextLevel)} className={btnPrimary}>
               {nextLevel === 1 ? "Mulai 🚀" : "Lanjut ➡️"}
             </button>
-
           </div>
         </div>
       )}
 
+      {/* LEVEL POPUP MULTI — muncul saat player selesai level */}
+      {showMultiLevelPopup && mode === "multi" && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
+          <div className="bg-white p-8 rounded-3xl shadow-xl text-center animate-pop max-w-sm w-full">
+            <h2 className="text-2xl font-bold text-pink-600 mb-3">Level {multiNextLevel}</h2>
+            <p className="text-gray-600 mb-2">Kamu selesai level {multiNextLevel - 1}!</p>
+            <p className="text-gray-600 mb-6">Siap lanjut ke level berikutnya?</p>
+            <button onClick={() => startMultiLevel(multiNextLevel)} className={btnPrimary}>
+              Lanjut ➡️
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* LOBBY */}
       {state === "lobby" && room && (
         <div className={card}>
-          <h2 className="text-xl font-bold text-center text-pink-600">
-            Room: {roomId}
-          </h2>
-
-          <p className="text-center text-sm text-gray-500 mb-2">
-            Menunggu pemain...
-          </p>
-
+          <h2 className="text-xl font-bold text-center text-pink-600">Room: {roomId}</h2>
+          <p className="text-center text-sm text-gray-500 mb-2">Menunggu pemain...</p>
           <div className="space-y-2">
             {room.players.map(p => (
               <div key={p.id} className="flex justify-between bg-white/80 p-3 rounded-xl">
                 <span>{p.username} ({p.studentId})</span>
-                {p.id === room.hostId && (
-                  <span className="text-xs text-pink-500">HOST</span>
-                )}
+                {p.id === room.hostId && <span className="text-xs text-pink-500">HOST</span>}
               </div>
             ))}
           </div>
-
-          {/* tombol start hanya host */}
           {isHost && (
             <button
               disabled={room.players.length < 2}
               onClick={() => socket.emit("startGame", { roomId })}
-              className="bg-pink-500 hover:bg-pink-600 text-white py-2 rounded-xl mt-4"
+              className="bg-pink-500 hover:bg-pink-600 text-white py-2 rounded-xl mt-4 disabled:opacity-50"
             >
               Start Game 🚀
             </button>
           )}
-
-          <button onClick={() => setState("menu")} className={btnBack}>
-            ← Back
-          </button>
+          <button onClick={() => setState("menu")} className={btnBack}>← Back</button>
         </div>
       )}
 
