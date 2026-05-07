@@ -132,16 +132,15 @@ io.on("connection", (socket) => {
     const player = room.players.find(p => p.id === socket.id);
     if (!player) return;
 
-    // hitung jawaban pemain ini
     player.answerCount = (player.answerCount || 0) + 1;
+    console.log(`📝 ${player.username} answerCount: ${player.answerCount}`);
     if (correct) player.score += 1;
 
     io.to(roomId).emit("updateRoom", room);
     io.to(roomId).emit("answerResult", { playerId: socket.id, correct });
 
-    // ← pindah level kalau semua pemain sudah jawab 15 soal
     if (checkAllPlayersFinished(room)) {
-      console.log(`✅ Semua pemain selesai 15 soal di level ${room.level}`);
+      console.log("✅ Semua selesai, advance level");
       advanceLevel(roomId);
     }
   });

@@ -82,6 +82,7 @@ export default function App() {
     });
  
     socket.on("timer", (t) => {
+      console.log("⏱️ timer:", t); 
       setMultiLevelTime(t);
     });
  
@@ -232,21 +233,23 @@ export default function App() {
   }
  
   function answerMulti(i) {
+    if (multiQuestionCountRef.current >= 15) return;
+
     const correct = room.question.options[i].isCorrect;
     socket.emit("answer", { roomId, answerIndex: i, correct });
- 
+
     setResult(correct ? "Benar 💖" : "Salah 😢");
- 
+
     setTimeout(() => {
       const next = multiQuestionCountRef.current + 1;
       multiQuestionCountRef.current = next;
       setMultiQuestionCount(next);
- 
+
       if (next < 15) {
         const lvl = multiLevelRef.current;
         setRoom(prev => ({ ...prev, question: getQuestion(lvl, next) }));
       }
- 
+
       setResult(null);
     }, 900);
   }
