@@ -68,7 +68,12 @@ function advanceLevel(roomId) {
   room.level++;
 
   if (room.level > 3) {
-    io.to(roomId).emit("gameFinished", room.players);
+  io.to(roomId).emit("gameFinished", room.players.map(p => ({
+    id: p.id,
+    username: p.username,
+    studentId: p.studentId,
+    score: p.score,
+  })));
   } else {
     io.to(roomId).emit("levelFinished", { nextLevel: room.level });
   }
@@ -93,7 +98,7 @@ io.on("connection", (socket) => {
     };
 
     socket.join(roomId);
-    socket.emit("roomJoined", { roomId, state: rooms[roomId] });
+    socket.emit("roomJoined", { roomId, state: safeRoomData(rooms[roomId]) });
   });
 
   // ================= JOIN ROOM =================
@@ -103,8 +108,8 @@ io.on("connection", (socket) => {
 
     room.players.push({ id: socket.id, username, studentId, score: 0, answerCount: 0 });
     socket.join(roomId);
-    socket.emit("roomJoined", { roomId, state: room });
-    io.to(roomId).emit("updateRoom", room);
+    socket.emit("roomJoined", { roomId, state: safeRoomData(room) });
+    io.to(roomId).emit("updateRoom", safeRoomData(room));
   });
 
   // ================= START GAME =================
@@ -136,7 +141,7 @@ io.on("connection", (socket) => {
     console.log(`📝 ${player.username} answerCount: ${player.answerCount}`);
     if (correct) player.score += 1;
 
-    io.to(roomId).emit("updateRoom", room);
+    io.to(roomId).emit("updateRoom", safeRoomData(room));
     io.to(roomId).emit("answerResult", { playerId: socket.id, correct });
 
     if (checkAllPlayersFinished(room)) {
@@ -197,6 +202,21 @@ function startLevel(roomId) {
       advanceLevel(roomId);
     }
   }, 1000);
+}
+
+// ================= HELPER: kirim room data yang aman =================
+function safeRoomData(room) {
+  return {
+    hostId: room.hostId,
+    status: room.status,
+    level: room.level,
+    players: room.players.map(p => ({
+      id: p.id,
+      username: p.username,
+      studentId: p.studentId,
+      score: p.score,
+    })),
+  };
 }
 
 // ================= START SERVER =================
