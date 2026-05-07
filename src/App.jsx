@@ -23,6 +23,7 @@ export default function App() {
   const [index, setIndex] = useState(0);
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
+  const answersRef = useRef([]); 
  
   const [time, setTime] = useState(100);
   const [result, setResult] = useState(null);
@@ -37,7 +38,7 @@ export default function App() {
  
   const [multiLevel, setMultiLevel] = useState(1);
   const [multiLevelTime, setMultiLevelTime] = useState(60);
-  const [multiQuestionCount, setMultiQuestionCount] = useState(0); 
+  const [multiQuestionCount, setMultiQuestionCount] = useState(0);
  
   const [isHost, setIsHost] = useState(false);
  
@@ -163,6 +164,7 @@ export default function App() {
         mode: "single",
         score: scoreRef.current,
         maxScore: MAX_SCORE,
+        answers: answersRef.current, 
       });
     }
   }, [state]);
@@ -180,6 +182,7 @@ export default function App() {
   function startSingle() {
     if (!hasRequiredInfo()) return alert("Isi data dulu!");
     scoreRef.current = 0;
+    answersRef.current = []; 
     setMode("single");
     setLevel(1);
     setQuestionCount(0);
@@ -191,15 +194,14 @@ export default function App() {
  
   function answerSingle(i) {
     const correct = question.options[i].isCorrect;
-    socket.emit("logAnswer", {
-      username,
-      studentId,
-      mode: "single",
+ 
+    answersRef.current.push({
       level,
-      soalIndex: questionCount,
+      soal: questionCount + 1,
       jawaban: question.options[i].id,
       benar: correct,
     });
+ 
     setResult(correct ? "Benar 💖" : "Salah 😢");
     setPendingNext(correct);
   }

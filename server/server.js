@@ -2,7 +2,7 @@ import express from "express";
 import http from "http";
 import { Server } from "socket.io";
 import cors from "cors";
-import { google } from "googleapis"; 
+import { google } from "googleapis";
 
 const app = express();
 app.use(cors());
@@ -17,7 +17,12 @@ let rooms = {};
 
 // ================= GOOGLE SHEETS =================
 const auth = new google.auth.GoogleAuth({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS),
+  credentials: process.env.GOOGLE_CREDENTIALS
+    ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
+    : undefined,
+  keyFile: process.env.GOOGLE_CREDENTIALS
+    ? undefined
+    : "./credentials.json",
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
@@ -29,7 +34,7 @@ async function appendToSheet(values) {
     const sheets = google.sheets({ version: "v4", auth: client });
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: "Sheet1!A:I",
+      range: "Sheet1!A:DM", // ← diperlebar untuk 95 kolom
       valueInputOption: "USER_ENTERED",
       requestBody: { values: [values] },
     });
@@ -95,7 +100,7 @@ io.on("connection", (socket) => {
     if (!room) return;
 
     const player = room.players.find(p => p.id === socket.id);
-    if (correct) player.score += 1; 
+    if (correct) player.score += 1;
 
     io.to(roomId).emit("updateRoom", room);
     io.to(roomId).emit("answerResult", {
@@ -104,34 +109,28 @@ io.on("connection", (socket) => {
     });
   });
 
-  // ================= LOG JAWABAN (SINGLE & MULTI) =================
-  socket.on("logAnswer", async ({ username, studentId, mode, level, soalIndex, jawaban, benar }) => {
-    await appendToSheet([
+  // ================= LOG FINISH — format horizontal =================
+  socket.on("logFinish", async ({ username, studentId, mode, score, maxScore, answers }) => {
+    // Susun 1 baris: timestamp | nama | student_id | mode | [L1S1 jawaban, L1S1 status, ...] | skor_akhir
+    const row = [
       new Date().toLocaleString("id-ID"),
       username,
       studentId,
       mode,
-      level,
-      soalIndex + 1,  
-      jawaban,
-      benar ? "TRUE" : "FALSE",
-      ""              
-    ]);
-  });
+    ];
 
-  // ================= LOG SKOR AKHIR =================
-  socket.on("logFinish", async ({ username, studentId, mode, score, maxScore }) => {
-    await appendToSheet([
-      new Date().toLocaleString("id-ID"),
-      username,
-      studentId,
-      mode,
-      "FINISH",
-      "-",
-      "-",
-      "-",
-      `${score}/${maxScore}`
-    ]);
+    // 3 level × 15 soal = 45 soal, tiap soal 2 kolom (jawaban + status)
+    for (let lvl = 1; lvl <= 3; lvl++) {
+      for (let soal = 1; soal <= 15; soal++) {
+        const found = answers.find(a => a.level === lvl && a.soal === soal);
+        row.push(found ? found.jawaban : "-");                    // kolom jawaban
+        row.push(found ? (found.benar ? "TRUE" : "FALSE") : "-"); // kolom status
+      }
+    }
+
+    row.push(`${score}/${maxScore}`); // kolom skor_akhir
+
+    await appendToSheet(row);
   });
 
   // ================= DISCONNECT =================
@@ -172,6 +171,7 @@ function startLevel(roomId) {
 }
 
 // ================= START SERVER =================
-server.listen(3001, () => {
-  console.log("🚀 Server running on http://localhost:3001");
+const PORT = process.env.PORT || 3001;
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
