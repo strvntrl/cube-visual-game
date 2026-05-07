@@ -32,6 +32,8 @@ try {
   console.error("❌ Google Auth gagal:", e.message);
 }
 
+const SPREADSHEET_ID = "1xsDIsqeLdNOz4yjzDUeX0EqONV1vJyZi-DddEPlMAIE";
+
 async function appendToSheet(values) {
   if (!auth) {
     console.error("❌ Auth tidak tersedia, skip simpan ke Sheets");
