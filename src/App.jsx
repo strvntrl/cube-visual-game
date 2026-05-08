@@ -42,7 +42,6 @@ export default function App() {
   const [levelTime, setLevelTime] = useState(TIME_PER_SOAL);
   const [showLevelPopup, setShowLevelPopup] = useState(false);
   const [nextLevel, setNextLevel] = useState(null);
-  const [imgLoaded, setImgLoaded] = useState(false);
 
   const usernameRef = useRef("");
   const studentIdRef = useRef("");
@@ -63,7 +62,6 @@ export default function App() {
   useEffect(() => {
     if (state !== "playing") return;
     setLevelTime(TIME_PER_SOAL);
-    setImgLoaded(false);
     const timer = setInterval(() => {
       setLevelTime(t => t - 1);
     }, 1000);
@@ -259,10 +257,10 @@ export default function App() {
                 style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)" }}>
                 Level {level}
               </span>
-              <span className="text-xs text-pink-500 font-medium">{questionCount + 1} / 15</span>
+             {/* <span className="text-xs text-pink-500 font-medium">{questionCount + 1} / 15</span> */}
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-pink-500">💖 {score}</span>
+             {/* <span className="text-xs text-pink-500">💖 {score}</span> */}
               <span className="text-xs font-mono font-bold px-2 py-1 rounded-full"
                 style={{ color: timerColor, background: `${timerColor}18` }}>
                 {levelTime}s
@@ -280,7 +278,6 @@ export default function App() {
               }} />
           </div>
 
-          {/* gambar kubus */}
           <div className="relative w-full max-w-[280px]">
             <div className="absolute inset-0 rounded-3xl"
               style={{
@@ -293,28 +290,19 @@ export default function App() {
                 background: "rgba(255,255,255,0.95)",
                 boxShadow: "0 8px 32px rgba(236,72,153,0.2)"
               }}>
-              {!imgLoaded && (
-                <div className="w-full h-56 flex items-center justify-center">
-                  <div className="w-8 h-8 rounded-full border-4 border-pink-300 border-t-pink-600 animate-spin" />
-                </div>
-              )}
               <img
-                key={question.cubeImage}
                 src={question.cubeImage}
                 alt="Soal"
-                className="w-full object-contain transition-opacity duration-200"
-                style={{ height: imgLoaded ? "14rem" : "0", opacity: imgLoaded ? 1 : 0 }}
-                onLoad={() => setImgLoaded(true)}
+                className="w-full object-contain"
+                style={{ height: "14rem" }}
               />
             </div>
           </div>
 
-          {/* hint */}
           <p className="text-center text-xs text-pink-400 font-medium">
             Pilih jaring-jaring yang tepat!
           </p>
 
-          {/* opsi jawaban */}
           <AnswerOptions
             options={question.options}
             questionIndex={questionCount}
