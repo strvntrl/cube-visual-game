@@ -7,16 +7,21 @@ import HomeScreen from "./components/HomeScreen";
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
 const socket = io(SERVER_URL);
 
-// ================= PRELOAD SEMUA GAMBAR =================
-function preloadAllImages() {
-  questions.forEach(q => {
-    const imgs = [q.cubeImage, ...q.options.map(o => o.image)];
-    imgs.forEach(src => {
-      if (!src) return;
-      const img = new Image();
-      img.src = src;
-    });
-  });
+// ================= DOM PRELOADER =================
+function ImagePreloader() {
+  return (
+    <div style={{ position: "fixed", opacity: 0, pointerEvents: "none", width: 1, height: 1, overflow: "hidden" }}
+      aria-hidden="true">
+      {questions.map(q => (
+        <span key={`${q.level}-${q.id}`}>
+          <img src={q.cubeImage} alt="" width="1" height="1" />
+          {q.options.map(o => (
+            <img key={o.id} src={o.image} alt="" width="1" height="1" />
+          ))}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export default function App() {
@@ -45,8 +50,6 @@ export default function App() {
   useEffect(() => { usernameRef.current = username; }, [username]);
   useEffect(() => { studentIdRef.current = studentId; }, [studentId]);
 
-  useEffect(() => { preloadAllImages(); }, []);
-
   function hasRequiredInfo() {
     return username.trim() !== "" && studentId.trim() !== "";
   }
@@ -54,18 +57,6 @@ export default function App() {
   function getQuestion(lvl, count) {
     const pool = questions.filter(q => q.level === lvl);
     return pool[count % pool.length];
-  }
-
-  function preloadNext(lvl, count) {
-    const pool = questions.filter(q => q.level === lvl);
-    const nextQ = pool[(count + 1) % pool.length];
-    if (!nextQ) return;
-    const imgs = [nextQ.cubeImage, ...nextQ.options.map(o => o.image)];
-    imgs.forEach(src => {
-      if (!src) return;
-      const img = new Image();
-      img.src = src;
-    });
   }
 
   // ================= TIMER PER SOAL =================
@@ -90,6 +81,7 @@ export default function App() {
     }
   }, [result]);
 
+  // ================= TIMER HABIS =================
   useEffect(() => {
     if (levelTime !== 0) return;
     if (state !== "playing") return;
@@ -101,6 +93,7 @@ export default function App() {
     }, 900);
   }, [levelTime]);
 
+  // ================= LOG FINISH =================
   useEffect(() => {
     if (state !== "finished") return;
     socket.emit("logFinish", {
@@ -116,9 +109,7 @@ export default function App() {
   function startLevel(lvl) {
     setLevel(lvl);
     setQuestionCount(0);
-    const q = getQuestion(lvl, 0);
-    setQuestion(q);
-    preloadNext(lvl, 0);
+    setQuestion(getQuestion(lvl, 0));
     setState("playing");
     setShowLevelPopup(false);
   }
@@ -156,9 +147,7 @@ export default function App() {
     if (questionCount + 1 < 15) {
       const next = questionCount + 1;
       setQuestionCount(next);
-      const q = getQuestion(level, next);
-      setQuestion(q);
-      preloadNext(level, next);
+      setQuestion(getQuestion(level, next));
     } else {
       if (level < 3) {
         setNextLevel(level + 1);
@@ -170,12 +159,23 @@ export default function App() {
     }
   }
 
+  function resetGame() {
+    setState("home");
+    setScore(0);
+    scoreRef.current = 0;
+    answersRef.current = [];
+    setUsername("");
+    setStudentId("");
+  }
+
   const timerPct = (levelTime / TIME_PER_SOAL) * 100;
   const timerColor = timerPct > 50 ? "#ec4899" : timerPct > 25 ? "#f97316" : "#ef4444";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4"
       style={{ background: "linear-gradient(135deg, #fce7f3 0%, #fdf2f8 40%, #f3e8ff 70%, #fce7f3 100%)" }}>
+
+      <ImagePreloader />
 
       {/* dekorasi background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -201,8 +201,11 @@ export default function App() {
         <div className="relative w-full max-w-sm">
           <div className="absolute -top-3 -left-3 w-full h-full rounded-3xl bg-pink-200 opacity-50" />
           <div className="relative rounded-3xl p-8 flex flex-col gap-5"
-            style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", boxShadow: "0 8px 40px rgba(236,72,153,0.15)" }}>
-
+            style={{
+              background: "rgba(255,255,255,0.85)",
+              backdropFilter: "blur(20px)",
+              boxShadow: "0 8px 40px rgba(236,72,153,0.15)"
+            }}>
             <div className="text-center">
               <div className="text-4xl mb-2">🎀</div>
               <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
@@ -210,7 +213,6 @@ export default function App() {
               </h2>
               <p className="text-sm text-pink-400 mt-1">Isi dulu sebelum main ya~</p>
             </div>
-
             <input
               placeholder="✏️ Nama kamu"
               className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
@@ -229,14 +231,15 @@ export default function App() {
               value={studentId}
               onChange={e => setStudentId(e.target.value)}
             />
-
             <button
               onClick={startSingle}
               className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
-              style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)", boxShadow: "0 4px 20px rgba(236,72,153,0.4)" }}>
+              style={{
+                background: "linear-gradient(135deg, #ec4899, #a855f7)",
+                boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
+              }}>
               Mulai Game 🚀
             </button>
-
             <button onClick={() => setState("home")}
               className="text-sm text-pink-400 text-center hover:text-pink-600 transition-colors">
               ← Kembali
@@ -247,7 +250,7 @@ export default function App() {
 
       {/* GAME */}
       {state === "playing" && question && (
-        <div className="flex flex-col items-center gap-4 w-full max-w-2xl px-2 animate-fade">
+        <div className="flex flex-col items-center gap-4 w-full max-w-2xl px-2">
 
           {/* header info */}
           <div className="w-full flex items-center justify-between px-2">
@@ -270,41 +273,53 @@ export default function App() {
           {/* timer bar */}
           <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#fce7f3" }}>
             <div className="h-full rounded-full transition-all duration-1000"
-              style={{ width: `${timerPct}%`, background: timerColor, boxShadow: `0 0 8px ${timerColor}60` }} />
+              style={{
+                width: `${timerPct}%`,
+                background: timerColor,
+                boxShadow: `0 0 8px ${timerColor}60`
+              }} />
           </div>
 
           {/* gambar kubus */}
           <div className="relative w-full max-w-[280px]">
             <div className="absolute inset-0 rounded-3xl"
-              style={{ background: "linear-gradient(135deg, #fbcfe8, #e9d5ff)", transform: "rotate(-2deg)", opacity: 0.6 }} />
+              style={{
+                background: "linear-gradient(135deg, #fbcfe8, #e9d5ff)",
+                transform: "rotate(-2deg)",
+                opacity: 0.6
+              }} />
             <div className="relative rounded-3xl p-3"
-              style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 8px 32px rgba(236,72,153,0.2)" }}>
+              style={{
+                background: "rgba(255,255,255,0.95)",
+                boxShadow: "0 8px 32px rgba(236,72,153,0.2)"
+              }}>
               {!imgLoaded && (
                 <div className="w-full h-56 flex items-center justify-center">
                   <div className="w-8 h-8 rounded-full border-4 border-pink-300 border-t-pink-600 animate-spin" />
                 </div>
               )}
               <img
+                key={question.cubeImage}
                 src={question.cubeImage}
                 alt="Soal"
-                className="w-full object-contain transition-opacity duration-300"
+                className="w-full object-contain transition-opacity duration-200"
                 style={{ height: imgLoaded ? "14rem" : "0", opacity: imgLoaded ? 1 : 0 }}
                 onLoad={() => setImgLoaded(true)}
               />
             </div>
           </div>
 
+          {/* hint */}
+          <p className="text-center text-xs text-pink-400 font-medium">
+            Pilih jaring-jaring yang tepat!
+          </p>
+
           {/* opsi jawaban */}
-          <div className="w-full">
-            <p className="text-center text-xs text-pink-400 mb-3 font-medium">
-              ✨ Pilih jaring-jaring yang tepat!
-            </p>
-            <AnswerOptions
-              options={question.options}
-              questionIndex={questionCount}
-              onSelect={answerSingle}
-            />
-          </div>
+          <AnswerOptions
+            options={question.options}
+            questionIndex={questionCount}
+            onSelect={answerSingle}
+          />
         </div>
       )}
 
@@ -315,8 +330,7 @@ export default function App() {
           <div className="px-10 py-6 rounded-3xl text-2xl font-bold text-center"
             style={{
               background: "rgba(255,255,255,0.95)",
-              boxShadow: "0 8px 40px rgba(236,72,153,0.3)",
-              animation: "pop 0.3s cubic-bezier(0.34,1.56,0.64,1)"
+              boxShadow: "0 8px 40px rgba(236,72,153,0.3)"
             }}>
             {result}
           </div>
@@ -330,7 +344,10 @@ export default function App() {
           <div className="relative w-full max-w-sm mx-4">
             <div className="absolute -top-3 -left-3 w-full h-full rounded-3xl bg-purple-200 opacity-40" />
             <div className="relative rounded-3xl p-8 text-center flex flex-col gap-5"
-              style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 8px 40px rgba(168,85,247,0.2)" }}>
+              style={{
+                background: "rgba(255,255,255,0.95)",
+                boxShadow: "0 8px 40px rgba(168,85,247,0.2)"
+              }}>
               <div className="text-5xl">🎉</div>
               <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
                 Selesai!
@@ -347,9 +364,12 @@ export default function App() {
                       "Jangan menyerah, coba lagi! 🌸"}
               </p>
               <button
-                onClick={() => { setState("home"); setScore(0); scoreRef.current = 0; answersRef.current = []; setUsername(""); setStudentId(""); }}
+                onClick={resetGame}
                 className="w-full py-3 rounded-2xl text-white font-bold transition-all active:scale-95"
-                style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)", boxShadow: "0 4px 20px rgba(236,72,153,0.4)" }}>
+                style={{
+                  background: "linear-gradient(135deg, #ec4899, #a855f7)",
+                  boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
+                }}>
                 Main Lagi 🎀
               </button>
             </div>
@@ -364,8 +384,10 @@ export default function App() {
           <div className="relative w-full max-w-sm mx-4">
             <div className="absolute -top-2 -right-2 w-full h-full rounded-3xl bg-pink-200 opacity-40" />
             <div className="relative rounded-3xl p-8 text-center flex flex-col gap-4"
-              style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 8px 40px rgba(236,72,153,0.25)" }}>
-
+              style={{
+                background: "rgba(255,255,255,0.95)",
+                boxShadow: "0 8px 40px rgba(236,72,153,0.25)"
+              }}>
               <div className="text-4xl">
                 {nextLevel === 1 ? "🌸" : nextLevel === 2 ? "💫" : "🌟"}
               </div>
@@ -382,7 +404,10 @@ export default function App() {
               <button
                 onClick={() => startLevel(nextLevel)}
                 className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
-                style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)", boxShadow: "0 4px 20px rgba(236,72,153,0.4)" }}>
+                style={{
+                  background: "linear-gradient(135deg, #ec4899, #a855f7)",
+                  boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
+                }}>
                 {nextLevel === 1 ? "Mulai! 🚀" : "Lanjut ➡️"}
               </button>
             </div>

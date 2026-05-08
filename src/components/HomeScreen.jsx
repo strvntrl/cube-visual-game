@@ -6,10 +6,9 @@ export default function HomeScreen({ onStart }) {
                     Cube Visual Game
                 </h1>
                 {/* <p className="text-base sm:text-lg text-purple-600 font-medium">
-                    Latih Kemampuan Visual Spasialmu ✨
+                    Latih Kemampuan Visual Spasialmu
                 </p> */}
             </div>
-
             <div className="bg-white/90 p-6 sm:p-8 rounded-3xl shadow-2xl">
                 <button
                     onClick={onStart}

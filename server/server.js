@@ -24,7 +24,7 @@ try {
       : undefined,
     keyFile: process.env.GOOGLE_CREDENTIALS
       ? undefined
-      : "./credentials.json",
+      : "./server/credentials.json",
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
   console.log("✅ Google Auth berhasil");
