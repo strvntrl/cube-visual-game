@@ -107,7 +107,7 @@ io.on("connection", (socket) => {
     io.to(roomId).emit("startSignal");
   });
 
-  // ================= ANSWER — catat skor =================
+  // ================= ANSWER =================
   socket.on("answer", ({ roomId, answerIndex, correct }) => {
     const room = rooms[roomId];
     if (!room) return;
@@ -118,7 +118,7 @@ io.on("connection", (socket) => {
     if (correct) player.score += 1;
   });
 
-  // ================= PLAYER FINISHED — pemain selesai semua soal =================
+  // ================= PLAYER FINISHED =================
   socket.on("playerFinished", ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) return;
