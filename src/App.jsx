@@ -1,63 +1,84 @@
-import { useState, useEffect, useRef } from "react"; 
+import { useState, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import { questions } from "./data/questions";
 import AnswerOptions from "./components/AnswerOptions";
 import HomeScreen from "./components/HomeScreen";
- 
+
 const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
 const socket = io(SERVER_URL);
- 
+
+// ================= PRELOAD SEMUA GAMBAR =================
+function preloadAllImages() {
+  questions.forEach(q => {
+    const imgs = [q.cubeImage, ...q.options.map(o => o.image)];
+    imgs.forEach(src => {
+      if (!src) return;
+      const img = new Image();
+      img.src = src;
+    });
+  });
+}
+
 export default function App() {
   const MAX_SCORE = 45;
   const TIME_PER_SOAL = 60;
- 
-  const [state, setState] = useState("home");
 
+  const [state, setState] = useState("home");
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState("");
-
   const [question, setQuestion] = useState(null);
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
   const answersRef = useRef([]);
- 
   const [result, setResult] = useState(null);
   const [pendingNext, setPendingNext] = useState(null);
- 
   const [level, setLevel] = useState(1);
   const [questionCount, setQuestionCount] = useState(0);
   const [levelTime, setLevelTime] = useState(TIME_PER_SOAL);
- 
   const [showLevelPopup, setShowLevelPopup] = useState(false);
   const [nextLevel, setNextLevel] = useState(null);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   const usernameRef = useRef("");
   const studentIdRef = useRef("");
 
   useEffect(() => { usernameRef.current = username; }, [username]);
   useEffect(() => { studentIdRef.current = studentId; }, [studentId]);
- 
+
+  useEffect(() => { preloadAllImages(); }, []);
+
   function hasRequiredInfo() {
     return username.trim() !== "" && studentId.trim() !== "";
   }
- 
+
   function getQuestion(lvl, count) {
     const pool = questions.filter(q => q.level === lvl);
     return pool[count % pool.length];
   }
- 
+
+  function preloadNext(lvl, count) {
+    const pool = questions.filter(q => q.level === lvl);
+    const nextQ = pool[(count + 1) % pool.length];
+    if (!nextQ) return;
+    const imgs = [nextQ.cubeImage, ...nextQ.options.map(o => o.image)];
+    imgs.forEach(src => {
+      if (!src) return;
+      const img = new Image();
+      img.src = src;
+    });
+  }
+
   // ================= TIMER PER SOAL =================
   useEffect(() => {
     if (state !== "playing") return;
- 
     setLevelTime(TIME_PER_SOAL);
+    setImgLoaded(false);
     const timer = setInterval(() => {
       setLevelTime(t => t - 1);
     }, 1000);
- 
     return () => clearInterval(timer);
   }, [state, level, questionCount]);
- 
+
   useEffect(() => {
     if (result && pendingNext !== null) {
       const t = setTimeout(() => {
@@ -68,31 +89,20 @@ export default function App() {
       return () => clearTimeout(t);
     }
   }, [result]);
- 
-  // ================= TIMER SOAL HABIS =================
+
   useEffect(() => {
     if (levelTime !== 0) return;
     if (state !== "playing") return;
-
-    answersRef.current.push({
-      level,
-      soal: questionCount + 1,
-      jawaban: "-",
-      benar: false,
-    });
-
+    answersRef.current.push({ level, soal: questionCount + 1, jawaban: "-", benar: false });
     setResult("Waktu Habis ⏱️");
     setTimeout(() => {
       setResult(null);
       nextSingle(false);
     }, 900);
-
   }, [levelTime]);
- 
-  // ================= LOG FINISH =================
+
   useEffect(() => {
     if (state !== "finished") return;
-
     socket.emit("logFinish", {
       username: usernameRef.current,
       studentId: studentIdRef.current,
@@ -102,15 +112,17 @@ export default function App() {
       answers: answersRef.current,
     });
   }, [state]);
- 
+
   function startLevel(lvl) {
     setLevel(lvl);
     setQuestionCount(0);
-    setQuestion(getQuestion(lvl, 0));
+    const q = getQuestion(lvl, 0);
+    setQuestion(q);
+    preloadNext(lvl, 0);
     setState("playing");
     setShowLevelPopup(false);
   }
- 
+
   function startSingle() {
     if (!hasRequiredInfo()) return alert("Isi nama dan Student ID dulu!");
     scoreRef.current = 0;
@@ -122,19 +134,17 @@ export default function App() {
     setShowLevelPopup(true);
     setState("paused");
   }
- 
+
   function answerSingle(i) {
     const correct = question.options[i].isCorrect;
     answersRef.current.push({
-      level,
-      soal: questionCount + 1,
-      jawaban: question.options[i].id,
-      benar: correct,
+      level, soal: questionCount + 1,
+      jawaban: question.options[i].id, benar: correct,
     });
     setResult(correct ? "Benar 💖" : "Salah 😢");
     setPendingNext(correct);
   }
- 
+
   function nextSingle(correct) {
     if (correct) {
       setScore(s => {
@@ -143,11 +153,12 @@ export default function App() {
         return next;
       });
     }
- 
     if (questionCount + 1 < 15) {
       const next = questionCount + 1;
       setQuestionCount(next);
-      setQuestion(getQuestion(level, next));
+      const q = getQuestion(level, next);
+      setQuestion(q);
+      preloadNext(level, next);
     } else {
       if (level < 3) {
         setNextLevel(level + 1);
@@ -158,16 +169,27 @@ export default function App() {
       }
     }
   }
- 
-  // ================= COMPONENT STYLE =================
-  const card = "w-full max-w-md p-6 sm:p-8 rounded-3xl bg-white/70 backdrop-blur-xl shadow-xl flex flex-col gap-4 animate-fade";
-  const input = "w-full p-3 rounded-xl border border-pink-200 focus:outline-none focus:ring-2 focus:ring-pink-300";
-  const btnPrimary = "bg-pink-500 hover:bg-pink-600 text-white py-2 rounded-xl transition";
-  const btnBack = "text-sm text-gray-500 mt-2";
 
-  // ================= UI =================
+  const timerPct = (levelTime / TIME_PER_SOAL) * 100;
+  const timerColor = timerPct > 50 ? "#ec4899" : timerPct > 25 ? "#f97316" : "#ef4444";
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-pink-100 via-purple-100 to-pink-200">
+    <div className="min-h-screen flex items-center justify-center px-4"
+      style={{ background: "linear-gradient(135deg, #fce7f3 0%, #fdf2f8 40%, #f3e8ff 70%, #fce7f3 100%)" }}>
+
+      {/* dekorasi background */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-20 -left-20 w-72 h-72 rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle, #f9a8d4, transparent)" }} />
+        <div className="absolute top-1/3 -right-16 w-56 h-56 rounded-full opacity-15"
+          style={{ background: "radial-gradient(circle, #c084fc, transparent)" }} />
+        <div className="absolute -bottom-16 left-1/3 w-64 h-64 rounded-full opacity-20"
+          style={{ background: "radial-gradient(circle, #f472b6, transparent)" }} />
+        {["top-16 left-12", "top-24 right-16", "bottom-32 left-8", "bottom-16 right-24", "top-1/2 left-6"].map((pos, i) => (
+          <div key={i} className={`absolute ${pos} text-pink-300 opacity-40 text-2xl`}
+            style={{ animation: `pulse ${2 + i * 0.4}s ease-in-out infinite` }}>✦</div>
+        ))}
+      </div>
 
       {/* HOME */}
       {state === "home" && (
@@ -176,54 +198,126 @@ export default function App() {
 
       {/* FORM */}
       {state === "form" && (
-        <div className={card}>
-          <h2 className="text-xl font-semibold text-center text-purple-600">Masukkan Data</h2>
-          <input placeholder="Nama" className={input}
-            value={username} onChange={(e) => setUsername(e.target.value)} />
-          <input placeholder="Student ID" className={input}
-            value={studentId} onChange={(e) => setStudentId(e.target.value)} />
-          <button onClick={startSingle} className={btnPrimary}>Start Game</button>
-          <button onClick={() => setState("home")} className={btnBack}>← Back</button>
+        <div className="relative w-full max-w-sm">
+          <div className="absolute -top-3 -left-3 w-full h-full rounded-3xl bg-pink-200 opacity-50" />
+          <div className="relative rounded-3xl p-8 flex flex-col gap-5"
+            style={{ background: "rgba(255,255,255,0.85)", backdropFilter: "blur(20px)", boxShadow: "0 8px 40px rgba(236,72,153,0.15)" }}>
+
+            <div className="text-center">
+              <div className="text-4xl mb-2">🎀</div>
+              <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
+                Halo, Siapa Kamu?
+              </h2>
+              <p className="text-sm text-pink-400 mt-1">Isi dulu sebelum main ya~</p>
+            </div>
+
+            <input
+              placeholder="✏️ Nama kamu"
+              className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
+              style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
+              onFocus={e => e.target.style.borderColor = "#ec4899"}
+              onBlur={e => e.target.style.borderColor = "#fbcfe8"}
+              value={username}
+              onChange={e => setUsername(e.target.value)}
+            />
+            <input
+              placeholder="🎓 Student ID"
+              className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
+              style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
+              onFocus={e => e.target.style.borderColor = "#ec4899"}
+              onBlur={e => e.target.style.borderColor = "#fbcfe8"}
+              value={studentId}
+              onChange={e => setStudentId(e.target.value)}
+            />
+
+            <button
+              onClick={startSingle}
+              className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
+              style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)", boxShadow: "0 4px 20px rgba(236,72,153,0.4)" }}>
+              Mulai Game 🚀
+            </button>
+
+            <button onClick={() => setState("home")}
+              className="text-sm text-pink-400 text-center hover:text-pink-600 transition-colors">
+              ← Kembali
+            </button>
+          </div>
         </div>
       )}
 
       {/* GAME */}
       {state === "playing" && question && (
-        <div className="flex flex-col items-center gap-4 w-full max-w-3xl px-2 sm:px-0 animate-fade">
+        <div className="flex flex-col items-center gap-4 w-full max-w-2xl px-2 animate-fade">
 
-          {/* progress bar timer */}
-          <div className="w-full h-3 bg-white/50 rounded-full overflow-hidden">
-            <div className="h-full bg-pink-500 transition-all duration-500"
-              style={{ width: `${(levelTime / TIME_PER_SOAL) * 100}%` }} />
+          {/* header info */}
+          <div className="w-full flex items-center justify-between px-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold px-3 py-1 rounded-full text-white"
+                style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)" }}>
+                Level {level}
+              </span>
+              <span className="text-xs text-pink-500 font-medium">{questionCount + 1} / 15</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-pink-500">💖 {score}</span>
+              <span className="text-xs font-mono font-bold px-2 py-1 rounded-full"
+                style={{ color: timerColor, background: `${timerColor}18` }}>
+                {levelTime}s
+              </span>
+            </div>
           </div>
 
-          <div className="text-center">
-            <p className="font-bold text-pink-600">Level {level}</p>
-            <p className="text-sm text-gray-500">
-              {questionCount + 1} / 15
+          {/* timer bar */}
+          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#fce7f3" }}>
+            <div className="h-full rounded-full transition-all duration-1000"
+              style={{ width: `${timerPct}%`, background: timerColor, boxShadow: `0 0 8px ${timerColor}60` }} />
+          </div>
+
+          {/* gambar kubus */}
+          <div className="relative w-full max-w-[280px]">
+            <div className="absolute inset-0 rounded-3xl"
+              style={{ background: "linear-gradient(135deg, #fbcfe8, #e9d5ff)", transform: "rotate(-2deg)", opacity: 0.6 }} />
+            <div className="relative rounded-3xl p-3"
+              style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 8px 32px rgba(236,72,153,0.2)" }}>
+              {!imgLoaded && (
+                <div className="w-full h-56 flex items-center justify-center">
+                  <div className="w-8 h-8 rounded-full border-4 border-pink-300 border-t-pink-600 animate-spin" />
+                </div>
+              )}
+              <img
+                src={question.cubeImage}
+                alt="Soal"
+                className="w-full object-contain transition-opacity duration-300"
+                style={{ height: imgLoaded ? "14rem" : "0", opacity: imgLoaded ? 1 : 0 }}
+                onLoad={() => setImgLoaded(true)}
+              />
+            </div>
+          </div>
+
+          {/* opsi jawaban */}
+          <div className="w-full">
+            <p className="text-center text-xs text-pink-400 mb-3 font-medium">
+              ✨ Pilih jaring-jaring yang tepat!
             </p>
-            <p className="text-sm text-gray-500">Time: {levelTime}s</p>
+            <AnswerOptions
+              options={question.options}
+              questionIndex={questionCount}
+              onSelect={answerSingle}
+            />
           </div>
-
-          <p className="text-sm text-gray-600">{username} ({studentId})</p>
-          <h2 className="font-semibold">Score: {score}</h2>
-
-          <div className="bg-white rounded-2xl shadow-xl p-4">
-            <img src={question.cubeImage} alt="Soal" className="w-64 h-64 object-contain" />
-          </div>
-
-          <AnswerOptions
-            options={question.options}
-            questionIndex={questionCount}
-            onSelect={answerSingle}
-          />
         </div>
       )}
 
       {/* RESULT POPUP */}
       {result && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className="bg-white p-6 rounded-2xl shadow-lg text-xl font-bold animate-pop">
+        <div className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(253,242,248,0.7)", backdropFilter: "blur(8px)" }}>
+          <div className="px-10 py-6 rounded-3xl text-2xl font-bold text-center"
+            style={{
+              background: "rgba(255,255,255,0.95)",
+              boxShadow: "0 8px 40px rgba(236,72,153,0.3)",
+              animation: "pop 0.3s cubic-bezier(0.34,1.56,0.64,1)"
+            }}>
             {result}
           </div>
         </div>
@@ -231,37 +325,67 @@ export default function App() {
 
       {/* FINISH */}
       {state === "finished" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/20 backdrop-blur-sm">
-          <div className={card}>
-            <h2 className="text-xl font-bold text-center">🎉 Game Selesai!</h2>
-            <p className="text-center text-2xl font-bold text-pink-600">{score}/{MAX_SCORE}</p>
-            <button onClick={() => {
-              setState("home");
-              setScore(0);
-              scoreRef.current = 0;
-              answersRef.current = [];
-              setUsername("");
-              setStudentId("");
-            }} className={btnPrimary}>
-              Kembali ke Menu
-            </button>
+        <div className="fixed inset-0 flex items-center justify-center"
+          style={{ background: "rgba(253,242,248,0.8)", backdropFilter: "blur(12px)" }}>
+          <div className="relative w-full max-w-sm mx-4">
+            <div className="absolute -top-3 -left-3 w-full h-full rounded-3xl bg-purple-200 opacity-40" />
+            <div className="relative rounded-3xl p-8 text-center flex flex-col gap-5"
+              style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 8px 40px rgba(168,85,247,0.2)" }}>
+              <div className="text-5xl">🎉</div>
+              <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
+                Selesai!
+              </h2>
+              <div className="py-4 rounded-2xl" style={{ background: "linear-gradient(135deg, #fce7f3, #f3e8ff)" }}>
+                <p className="text-sm text-pink-400 mb-1">Skor kamu</p>
+                <p className="text-5xl font-bold text-pink-600">{score}</p>
+                <p className="text-sm text-pink-400">dari {MAX_SCORE}</p>
+              </div>
+              <p className="text-sm text-gray-500">
+                {score >= 40 ? "Luar biasa! Kamu hebat banget~ 🌟" :
+                  score >= 30 ? "Bagus! Terus semangat ya! 💪" :
+                    score >= 15 ? "Lumayan! Latihan lagi yuk~ ✨" :
+                      "Jangan menyerah, coba lagi! 🌸"}
+              </p>
+              <button
+                onClick={() => { setState("home"); setScore(0); scoreRef.current = 0; answersRef.current = []; setUsername(""); setStudentId(""); }}
+                className="w-full py-3 rounded-2xl text-white font-bold transition-all active:scale-95"
+                style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)", boxShadow: "0 4px 20px rgba(236,72,153,0.4)" }}>
+                Main Lagi 🎀
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* LEVEL POPUP */}
       {showLevelPopup && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black/30 backdrop-blur-sm z-50">
-          <div className="bg-white p-8 rounded-3xl shadow-xl text-center animate-pop max-w-sm w-full">
-            <h2 className="text-2xl font-bold text-pink-600 mb-3">
-              {nextLevel === 1 ? "Siap Memulai?" : `Level ${nextLevel}`}
-            </h2>
-            <p className="text-gray-600 mb-6">
-              {nextLevel === 1 ? "Game akan dimulai. Fokus ya!" : "Siap lanjut ke level berikutnya?"}
-            </p>
-            <button onClick={() => startLevel(nextLevel)} className={btnPrimary}>
-              {nextLevel === 1 ? "Mulai 🚀" : "Lanjut ➡️"}
-            </button>
+        <div className="fixed inset-0 flex items-center justify-center z-50"
+          style={{ background: "rgba(253,242,248,0.8)", backdropFilter: "blur(12px)" }}>
+          <div className="relative w-full max-w-sm mx-4">
+            <div className="absolute -top-2 -right-2 w-full h-full rounded-3xl bg-pink-200 opacity-40" />
+            <div className="relative rounded-3xl p-8 text-center flex flex-col gap-4"
+              style={{ background: "rgba(255,255,255,0.95)", boxShadow: "0 8px 40px rgba(236,72,153,0.25)" }}>
+
+              <div className="text-4xl">
+                {nextLevel === 1 ? "🌸" : nextLevel === 2 ? "💫" : "🌟"}
+              </div>
+              <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
+                {nextLevel === 1 ? "Siap Main?" : `Level ${nextLevel}`}
+              </h2>
+              <p className="text-sm text-gray-500">
+                {nextLevel === 1
+                  ? "Perhatikan bentuk kubus dan pilih jaring-jaring yang benar. Semangat! 💖"
+                  : nextLevel === 2
+                    ? "Memasuki level 2! Soal mulai lebih menantang~ 🔥"
+                    : "Level terakhir! Tunjukkan kemampuan terbaikmu! ⭐"}
+              </p>
+              <button
+                onClick={() => startLevel(nextLevel)}
+                className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
+                style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)", boxShadow: "0 4px 20px rgba(236,72,153,0.4)" }}>
+                {nextLevel === 1 ? "Mulai! 🚀" : "Lanjut ➡️"}
+              </button>
+            </div>
           </div>
         </div>
       )}
