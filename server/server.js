@@ -142,7 +142,7 @@ io.on("connection", (socket) => {
   // ================= LOG FINISH =================
   socket.on("logFinish", async ({ username, studentId, mode, score, maxScore, answers }) => {
     const row = [
-      new Date().toLocaleString("id-ID"),
+      new Date().toLocaleString("id-ID", {timezone: "Asia/Jakarta"}),
       username,
       studentId,
       mode,
