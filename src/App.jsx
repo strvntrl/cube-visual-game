@@ -361,15 +361,15 @@ export default function App() {
                 </div>
                 {durasi && (
                   <div className="border-t border-pink-200 pt-3">
-                    <p className="text-sm text-pink-400 mb-1">Durasi bermain</p>
-                    <p className="text-xl font-bold text-purple-500">⏱️ {durasi}</p>
+                    <p className="text-sm text-pink-400 mb-1">⏱️Durasi bermain</p>
+                    <p className="text-xl font-bold text-purple-500">{durasi}</p>
                   </div>
                 )}
               </div>
               <p className="text-sm text-gray-500">
-                {score >= 40 ? "Luar biasa! Kamu hebat banget~ 🌟" :
-                  score >= 30 ? "Bagus! Terus semangat ya! 💪" :
-                    score >= 15 ? "Lumayan! Latihan lagi yuk~ ✨" :
+                {score >= 40 ? "Luar biasa! 🌟" :
+                  score >= 30 ? "Terus semangat! 💪" :
+                    score >= 15 ? "Lumayan! ✨" :
                       "Jangan menyerah, coba lagi! 🌸"}
               </p>
               <button
@@ -379,7 +379,7 @@ export default function App() {
                   background: "linear-gradient(135deg, #ec4899, #a855f7)",
                   boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
                 }}>
-                Main Lagi 🎀
+                Main Lagi ⟳
               </button>
             </div>
           </div>
@@ -407,8 +407,8 @@ export default function App() {
                 {nextLevel === 1
                   ? "Perhatikan bentuk kubus dan pilih jaring-jaring yang benar. Semangat! 💖"
                   : nextLevel === 2
-                    ? "Memasuki level 2! Soal mulai lebih menantang~"
-                    : "Level terakhir! Tunjukkan kemampuan terbaikmu!"}
+                    ? "Masuk level 2! Soal mulai menantang!"
+                    : "Level terakhir! Semoga berhasil!"}
               </p>
               <button
                 onClick={() => startLevel(nextLevel)}
@@ -417,7 +417,7 @@ export default function App() {
                   background: "linear-gradient(135deg, #ec4899, #a855f7)",
                   boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
                 }}>
-                {nextLevel === 1 ? "Mulai! 🚀" : "Lanjut ➡️"}
+                {nextLevel === 1 ? "Mulai!" : "Lanjut!"}
               </button>
             </div>
           </div>
