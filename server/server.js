@@ -71,81 +71,61 @@ function safeRoomData(room) {
 io.on("connection", (socket) => {
   console.log("✅ User connected:", socket.id);
 
-  // ================= CREATE ROOM =================
   socket.on("createRoom", ({ username, studentId }) => {
     const roomId = Math.random().toString(36).substring(2, 7);
-
     rooms[roomId] = {
       hostId: socket.id,
       status: "lobby",
       players: [{ id: socket.id, username, studentId, score: 0, finished: false }],
     };
-
     socket.join(roomId);
     socket.emit("roomJoined", { roomId, state: safeRoomData(rooms[roomId]) });
   });
 
-  // ================= JOIN ROOM =================
   socket.on("joinRoom", ({ roomId, username, studentId }) => {
     const room = rooms[roomId];
     if (!room) return socket.emit("error", "Room tidak ditemukan");
-
     room.players.push({ id: socket.id, username, studentId, score: 0, finished: false });
     socket.join(roomId);
     socket.emit("roomJoined", { roomId, state: safeRoomData(room) });
     io.to(roomId).emit("updateRoom", safeRoomData(room));
   });
 
-  // ================= START GAME =================
   socket.on("startGame", ({ roomId }) => {
     const room = rooms[roomId];
     if (!room || socket.id !== room.hostId) return;
-
     room.status = "playing";
     room.players.forEach(p => { p.score = 0; p.finished = false; });
-
     io.to(roomId).emit("startSignal");
   });
 
-  // ================= ANSWER =================
   socket.on("answer", ({ roomId, answerIndex, correct }) => {
     const room = rooms[roomId];
     if (!room) return;
-
     const player = room.players.find(p => p.id === socket.id);
     if (!player) return;
-
     if (correct) player.score += 1;
   });
 
-  // ================= PLAYER FINISHED =================
   socket.on("playerFinished", ({ roomId }) => {
     const room = rooms[roomId];
     if (!room) return;
-
     const player = room.players.find(p => p.id === socket.id);
     if (player) player.finished = true;
-
-    console.log(`✅ ${player?.username} selesai. Total selesai: ${room.players.filter(p => p.finished).length}/${room.players.length}`);
-
     if (room.players.every(p => p.finished)) {
-      console.log("🎉 Semua pemain selesai!");
       io.to(roomId).emit("gameFinished", room.players.map(p => ({
-        id: p.id,
-        username: p.username,
-        studentId: p.studentId,
-        score: p.score,
+        id: p.id, username: p.username, studentId: p.studentId, score: p.score,
       })));
     }
   });
 
   // ================= LOG FINISH =================
-  socket.on("logFinish", async ({ username, studentId, mode, score, maxScore, answers }) => {
+  socket.on("logFinish", async ({ username, studentId, score, maxScore, answers, durasi }) => {
     const row = [
-      new Date().toLocaleString("id-ID", {timezone: "Asia/Jakarta"}),
+      new Date().toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }),
       username,
       studentId,
-      mode,
+      durasi ?? "-", 
     ];
 
     for (let lvl = 1; lvl <= 3; lvl++) {
@@ -160,10 +140,8 @@ io.on("connection", (socket) => {
     await appendToSheet(row);
   });
 
-  // ================= DISCONNECT =================
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
-
     for (const roomId in rooms) {
       const room = rooms[roomId];
       const idx = room.players.findIndex(p => p.id === socket.id);

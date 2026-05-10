@@ -42,9 +42,11 @@ export default function App() {
   const [levelTime, setLevelTime] = useState(TIME_PER_SOAL);
   const [showLevelPopup, setShowLevelPopup] = useState(false);
   const [nextLevel, setNextLevel] = useState(null);
+  const [durasi, setDurasi] = useState("");
 
   const usernameRef = useRef("");
   const studentIdRef = useRef("");
+  const startTimeRef = useRef(null); 
 
   useEffect(() => { usernameRef.current = username; }, [username]);
   useEffect(() => { studentIdRef.current = studentId; }, [studentId]);
@@ -94,13 +96,23 @@ export default function App() {
   // ================= LOG FINISH =================
   useEffect(() => {
     if (state !== "finished") return;
+
+    // hitung durasi
+    const detikTotal = startTimeRef.current
+      ? Math.floor((Date.now() - startTimeRef.current) / 1000)
+      : 0;
+    const menit = Math.floor(detikTotal / 60);
+    const detik = detikTotal % 60;
+    const durasiStr = `${menit}m ${String(detik).padStart(2, "0")}s`;
+    setDurasi(durasiStr);
+
     socket.emit("logFinish", {
       username: usernameRef.current,
       studentId: studentIdRef.current,
-      mode: "single",
       score: scoreRef.current,
       maxScore: MAX_SCORE,
       answers: answersRef.current,
+      durasi: durasiStr,
     });
   }, [state]);
 
@@ -116,9 +128,11 @@ export default function App() {
     if (!hasRequiredInfo()) return alert("Isi nama dan Student ID dulu!");
     scoreRef.current = 0;
     answersRef.current = [];
+    startTimeRef.current = Date.now(); 
     setLevel(1);
     setQuestionCount(0);
     setScore(0);
+    setDurasi("");
     setNextLevel(1);
     setShowLevelPopup(true);
     setState("paused");
@@ -162,6 +176,8 @@ export default function App() {
     setScore(0);
     scoreRef.current = 0;
     answersRef.current = [];
+    startTimeRef.current = null;
+    setDurasi("");
     setUsername("");
     setStudentId("");
   }
@@ -250,17 +266,14 @@ export default function App() {
       {state === "playing" && question && (
         <div className="flex flex-col items-center gap-4 w-full max-w-2xl px-2">
 
-          {/* header info */}
           <div className="w-full flex items-center justify-between px-2">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold px-3 py-1 rounded-full text-white"
                 style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)" }}>
                 Level {level}
               </span>
-             {/* <span className="text-xs text-pink-500 font-medium">{questionCount + 1} / 15</span> */}
             </div>
             <div className="flex items-center gap-2">
-             {/* <span className="text-xs text-pink-500">💖 {score}</span> */}
               <span className="text-xs font-mono font-bold px-2 py-1 rounded-full"
                 style={{ color: timerColor, background: `${timerColor}18` }}>
                 {levelTime}s
@@ -268,7 +281,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* timer bar */}
           <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#fce7f3" }}>
             <div className="h-full rounded-full transition-all duration-1000"
               style={{
@@ -340,10 +352,19 @@ export default function App() {
               <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
                 Selesai!
               </h2>
-              <div className="py-4 rounded-2xl" style={{ background: "linear-gradient(135deg, #fce7f3, #f3e8ff)" }}>
-                <p className="text-sm text-pink-400 mb-1">Skor kamu</p>
-                <p className="text-5xl font-bold text-pink-600">{score}</p>
-                <p className="text-sm text-pink-400">dari {MAX_SCORE}</p>
+              <div className="py-4 rounded-2xl flex flex-col gap-3"
+                style={{ background: "linear-gradient(135deg, #fce7f3, #f3e8ff)" }}>
+                <div>
+                  <p className="text-sm text-pink-400 mb-1">Skor kamu</p>
+                  <p className="text-5xl font-bold text-pink-600">{score}</p>
+                  <p className="text-sm text-pink-400">dari {MAX_SCORE}</p>
+                </div>
+                {durasi && (
+                  <div className="border-t border-pink-200 pt-3">
+                    <p className="text-sm text-pink-400 mb-1">Durasi bermain</p>
+                    <p className="text-xl font-bold text-purple-500">⏱️ {durasi}</p>
+                  </div>
+                )}
               </div>
               <p className="text-sm text-gray-500">
                 {score >= 40 ? "Luar biasa! Kamu hebat banget~ 🌟" :
@@ -386,8 +407,8 @@ export default function App() {
                 {nextLevel === 1
                   ? "Perhatikan bentuk kubus dan pilih jaring-jaring yang benar. Semangat! 💖"
                   : nextLevel === 2
-                    ? "Memasuki level 2! Soal mulai lebih menantang~ 🔥"
-                    : "Level terakhir! Tunjukkan kemampuan terbaikmu! ⭐"}
+                    ? "Memasuki level 2! Soal mulai lebih menantang~"
+                    : "Level terakhir! Tunjukkan kemampuan terbaikmu!"}
               </p>
               <button
                 onClick={() => startLevel(nextLevel)}
