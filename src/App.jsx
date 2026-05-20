@@ -1,11 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { io } from "socket.io-client";
 import { questions } from "./data/questions";
 import AnswerOptions from "./components/AnswerOptions";
 import HomeScreen from "./components/HomeScreen";
-
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
-const socket = io(SERVER_URL);
 
 // ================= DOM PRELOADER =================
 function ImagePreloader() {
@@ -26,7 +22,6 @@ function ImagePreloader() {
 
 export default function App() {
   const MAX_SCORE = 45;
-  const TIME_PER_SOAL = 60;
 
   const [state, setState] = useState("home");
   const [username, setUsername] = useState("");
@@ -35,11 +30,8 @@ export default function App() {
   const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
   const answersRef = useRef([]);
-  const [result, setResult] = useState(null);
-  const [pendingNext, setPendingNext] = useState(null);
   const [level, setLevel] = useState(1);
   const [questionCount, setQuestionCount] = useState(0);
-  const [levelTime, setLevelTime] = useState(TIME_PER_SOAL);
   const [showLevelPopup, setShowLevelPopup] = useState(false);
   const [nextLevel, setNextLevel] = useState(null);
   const [durasi, setDurasi] = useState("");
@@ -57,41 +49,12 @@ export default function App() {
 
   function getQuestion(lvl, count) {
     const pool = questions.filter(q => q.level === lvl);
+    if (pool.length === 0) {
+      console.error("Question pool kosong untuk level:", lvl);
+      return null;
+    }
     return pool[count % pool.length];
   }
-
-  // ================= TIMER PER SOAL =================
-  useEffect(() => {
-    if (state !== "playing") return;
-    setLevelTime(TIME_PER_SOAL);
-    const timer = setInterval(() => {
-      setLevelTime(t => t - 1);
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [state, level, questionCount]);
-
-  useEffect(() => {
-    if (result && pendingNext !== null) {
-      const t = setTimeout(() => {
-        nextSingle(pendingNext);
-        setPendingNext(null);
-        setResult(null);
-      }, 900);
-      return () => clearTimeout(t);
-    }
-  }, [result]);
-
-  // ================= TIMER HABIS =================
-  useEffect(() => {
-    if (levelTime !== 0) return;
-    if (state !== "playing") return;
-    answersRef.current.push({ level, soal: questionCount + 1, jawaban: "-", benar: false });
-    setResult("Waktu Habis ⏱️");
-    setTimeout(() => {
-      setResult(null);
-      nextSingle(false);
-    }, 900);
-  }, [levelTime]);
 
   // ================= LOG FINISH =================
   useEffect(() => {
@@ -106,13 +69,19 @@ export default function App() {
     const durasiStr = `${menit}m ${String(detik).padStart(2, "0")}s`;
     setDurasi(durasiStr);
 
-    socket.emit("logFinish", {
-      username: usernameRef.current,
-      studentId: studentIdRef.current,
-      score: scoreRef.current,
-      maxScore: MAX_SCORE,
-      answers: answersRef.current,
-      durasi: durasiStr,
+    fetch("http://localhost:3001/logFinish", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        username: usernameRef.current,
+        studentId: studentIdRef.current,
+        score: scoreRef.current,
+        maxScore: MAX_SCORE,
+        answers: answersRef.current,
+        durasi: durasiStr,
+      }),
     });
   }, [state]);
 
@@ -139,13 +108,17 @@ export default function App() {
   }
 
   function answerSingle(i) {
-    const correct = question.options[i].isCorrect;
+    if (!question) return;
+    const selected = question.options?.[i];
+    if (!selected) return;
+    const correct = selected.isCorrect;
     answersRef.current.push({
-      level, soal: questionCount + 1,
-      jawaban: question.options[i].id, benar: correct,
+      level,
+      soal: questionCount + 1,
+      jawaban: selected.id,
+      benar: correct,
     });
-    setResult(correct ? "Benar 💖" : "Salah 😢");
-    setPendingNext(correct);
+    nextSingle(correct);
   }
 
   function nextSingle(correct) {
@@ -181,9 +154,6 @@ export default function App() {
     setUsername("");
     setStudentId("");
   }
-
-  const timerPct = (levelTime / TIME_PER_SOAL) * 100;
-  const timerColor = timerPct > 50 ? "#ec4899" : timerPct > 25 ? "#f97316" : "#ef4444";
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4"
@@ -265,31 +235,6 @@ export default function App() {
       {/* GAME */}
       {state === "playing" && question && (
         <div className="flex flex-col items-center gap-4 w-full max-w-2xl px-2">
-
-          <div className="w-full flex items-center justify-between px-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold px-3 py-1 rounded-full text-white"
-                style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)" }}>
-                Level {level}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-bold px-2 py-1 rounded-full"
-                style={{ color: timerColor, background: `${timerColor}18` }}>
-                {levelTime}s
-              </span>
-            </div>
-          </div>
-
-          <div className="w-full h-2 rounded-full overflow-hidden" style={{ background: "#fce7f3" }}>
-            <div className="h-full rounded-full transition-all duration-1000"
-              style={{
-                width: `${timerPct}%`,
-                background: timerColor,
-                boxShadow: `0 0 8px ${timerColor}60`
-              }} />
-          </div>
-
           <div className="relative w-full max-w-[280px]">
             <div className="absolute inset-0 rounded-3xl"
               style={{
@@ -315,25 +260,13 @@ export default function App() {
             Pilih jaring-jaring yang tepat!
           </p>
 
-          <AnswerOptions
-            options={question.options}
-            questionIndex={questionCount}
-            onSelect={answerSingle}
-          />
-        </div>
-      )}
-
-      {/* RESULT POPUP */}
-      {result && (
-        <div className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ background: "rgba(253,242,248,0.7)", backdropFilter: "blur(8px)" }}>
-          <div className="px-10 py-6 rounded-3xl text-2xl font-bold text-center"
-            style={{
-              background: "rgba(255,255,255,0.95)",
-              boxShadow: "0 8px 40px rgba(236,72,153,0.3)"
-            }}>
-            {result}
-          </div>
+          {question?.options && (
+            <AnswerOptions
+              options={question.options}
+              questionIndex={questionCount}
+              onSelect={answerSingle}
+            />
+          )}
         </div>
       )}
 
@@ -352,26 +285,12 @@ export default function App() {
               <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
                 Selesai!
               </h2>
-              <div className="py-4 rounded-2xl flex flex-col gap-3"
+              <div className="py-4 rounded-2xl"
                 style={{ background: "linear-gradient(135deg, #fce7f3, #f3e8ff)" }}>
-                <div>
-                  <p className="text-sm text-pink-400 mb-1">Skor kamu</p>
-                  <p className="text-5xl font-bold text-pink-600">{score}</p>
-                  <p className="text-sm text-pink-400">dari {MAX_SCORE}</p>
-                </div>
-                {durasi && (
-                  <div className="border-t border-pink-200 pt-3">
-                    <p className="text-sm text-pink-400 mb-1">⏱️Durasi bermain</p>
-                    <p className="text-xl font-bold text-purple-500">{durasi}</p>
-                  </div>
-                )}
+                <p className="text-lg font-semibold text-pink-600">
+                  Terima kasih sudah bermain 💖
+                </p>
               </div>
-              <p className="text-sm text-gray-500">
-                {score >= 40 ? "Luar biasa! 🌟" :
-                  score >= 30 ? "Terus semangat! 💪" :
-                    score >= 15 ? "Lumayan! ✨" :
-                      "Jangan menyerah, coba lagi! 🌸"}
-              </p>
               <button
                 onClick={resetGame}
                 className="w-full py-3 rounded-2xl text-white font-bold transition-all active:scale-95"
