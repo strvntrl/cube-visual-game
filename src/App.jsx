@@ -3,6 +3,8 @@ import { questions } from "./data/questions";
 import AnswerOptions from "./components/AnswerOptions";
 import HomeScreen from "./components/HomeScreen";
 
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || "http://localhost:3001";
+
 // ================= DOM PRELOADER =================
 function ImagePreloader() {
   return (
@@ -27,9 +29,9 @@ export default function App() {
   const [username, setUsername] = useState("");
   const [studentId, setStudentId] = useState("");
   const [question, setQuestion] = useState(null);
-  const [score, setScore] = useState(0);
   const scoreRef = useRef(0);
   const answersRef = useRef([]);
+  const [pendingNext, setPendingNext] = useState(null);
   const [level, setLevel] = useState(1);
   const [questionCount, setQuestionCount] = useState(0);
   const [showLevelPopup, setShowLevelPopup] = useState(false);
@@ -38,7 +40,7 @@ export default function App() {
 
   const usernameRef = useRef("");
   const studentIdRef = useRef("");
-  const startTimeRef = useRef(null); 
+  const startTimeRef = useRef(null);
 
   useEffect(() => { usernameRef.current = username; }, [username]);
   useEffect(() => { studentIdRef.current = studentId; }, [studentId]);
@@ -49,18 +51,24 @@ export default function App() {
 
   function getQuestion(lvl, count) {
     const pool = questions.filter(q => q.level === lvl);
-    if (pool.length === 0) {
-      console.error("Question pool kosong untuk level:", lvl);
-      return null;
-    }
     return pool[count % pool.length];
   }
+
+  // ================= AUTO NEXT setelah jawab =================
+  // Tidak ada result popup, langsung lanjut setelah 400ms
+  useEffect(() => {
+    if (pendingNext === null) return;
+    const t = setTimeout(() => {
+      nextSingle(pendingNext);
+      setPendingNext(null);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [pendingNext]);
 
   // ================= LOG FINISH =================
   useEffect(() => {
     if (state !== "finished") return;
 
-    // hitung durasi
     const detikTotal = startTimeRef.current
       ? Math.floor((Date.now() - startTimeRef.current) / 1000)
       : 0;
@@ -69,11 +77,10 @@ export default function App() {
     const durasiStr = `${menit}m ${String(detik).padStart(2, "0")}s`;
     setDurasi(durasiStr);
 
-    fetch("http://localhost:3001/logFinish", {
+    // kirim ke server via REST
+    fetch("/api/logFinish", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         username: usernameRef.current,
         studentId: studentIdRef.current,
@@ -82,7 +89,7 @@ export default function App() {
         answers: answersRef.current,
         durasi: durasiStr,
       }),
-    });
+    }).catch(err => console.error("Gagal kirim data:", err));
   }, [state]);
 
   function startLevel(lvl) {
@@ -94,13 +101,12 @@ export default function App() {
   }
 
   function startSingle() {
-    if (!hasRequiredInfo()) return alert("Isi nama dan asal instansi dulu!");
+    if (!hasRequiredInfo()) return alert("Ups! Nama dan asal instansi belum diisi nih~");
     scoreRef.current = 0;
     answersRef.current = [];
-    startTimeRef.current = Date.now(); 
+    startTimeRef.current = Date.now();
     setLevel(1);
     setQuestionCount(0);
-    setScore(0);
     setDurasi("");
     setNextLevel(1);
     setShowLevelPopup(true);
@@ -108,27 +114,22 @@ export default function App() {
   }
 
   function answerSingle(i) {
-    if (!question) return;
-    const selected = question.options?.[i];
-    if (!selected) return;
-    const correct = selected.isCorrect;
+    const correct = question.options[i].isCorrect;
+
+    // simpan jawaban — data tetap dicatat meski tidak ditampilkan ke pemain
     answersRef.current.push({
-      level,
-      soal: questionCount + 1,
-      jawaban: selected.id,
-      benar: correct,
+      level, soal: questionCount + 1,
+      jawaban: question.options[i].id, benar: correct,
     });
-    nextSingle(correct);
+
+    // hitung skor di background
+    if (correct) scoreRef.current += 1;
+
+    // langsung lanjut tanpa popup benar/salah
+    setPendingNext(correct);
   }
 
   function nextSingle(correct) {
-    if (correct) {
-      setScore(s => {
-        const next = s + 1;
-        scoreRef.current = next;
-        return next;
-      });
-    }
     if (questionCount + 1 < 15) {
       const next = questionCount + 1;
       setQuestionCount(next);
@@ -146,7 +147,6 @@ export default function App() {
 
   function resetGame() {
     setState("home");
-    setScore(0);
     scoreRef.current = 0;
     answersRef.current = [];
     startTimeRef.current = null;
@@ -195,26 +195,28 @@ export default function App() {
               <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
                 Halo, Siapa Kamu?
               </h2>
-              <p className="text-sm text-pink-400 mt-1">Isi dulu sebelum main ya~</p>
+              <p className="text-sm text-pink-400 mt-1">Kenalin diri dulu sebelum mulai main ya~</p>
             </div>
-            <input
-              placeholder="✏️ Nama kamu"
-              className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
-              style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
-              onFocus={e => e.target.style.borderColor = "#ec4899"}
-              onBlur={e => e.target.style.borderColor = "#fbcfe8"}
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-            />
-            <input
-              placeholder="🎓 Asal Instansi"
-              className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
-              style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
-              onFocus={e => e.target.style.borderColor = "#ec4899"}
-              onBlur={e => e.target.style.borderColor = "#fbcfe8"}
-              value={studentId}
-              onChange={e => setStudentId(e.target.value)}
-            />
+            <div className="flex flex-col gap-3">
+              <input
+                placeholder="✏️ Nama lengkap kamu"
+                className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
+                style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
+                onFocus={e => e.target.style.borderColor = "#ec4899"}
+                onBlur={e => e.target.style.borderColor = "#fbcfe8"}
+                value={username}
+                onChange={e => setUsername(e.target.value)}
+              />
+              <input
+                placeholder="🏫 Asal instansi"
+                className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
+                style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
+                onFocus={e => e.target.style.borderColor = "#ec4899"}
+                onBlur={e => e.target.style.borderColor = "#fbcfe8"}
+                value={studentId}
+                onChange={e => setStudentId(e.target.value)}
+              />
+            </div>
             <button
               onClick={startSingle}
               className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
@@ -222,19 +224,29 @@ export default function App() {
                 background: "linear-gradient(135deg, #ec4899, #a855f7)",
                 boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
               }}>
-              Mulai Game 🚀
+              Ayo Mulai! 🚀
             </button>
             <button onClick={() => setState("home")}
               className="text-sm text-pink-400 text-center hover:text-pink-600 transition-colors">
-              ← Kembali
+              ← Balik ke halaman awal
             </button>
           </div>
         </div>
       )}
 
-      {/* GAME */}
+      {/* GAME — tidak ada timer UI, tidak ada skor */}
       {state === "playing" && question && (
         <div className="flex flex-col items-center gap-4 w-full max-w-2xl px-2">
+
+          {/* hanya tampilkan level */}
+          <div className="w-full flex items-center justify-center px-2">
+            <span className="text-xs font-bold px-4 py-1.5 rounded-full text-white"
+              style={{ background: "linear-gradient(135deg, #ec4899, #a855f7)" }}>
+              Level {level}
+            </span>
+          </div>
+
+          {/* gambar kubus */}
           <div className="relative w-full max-w-[280px]">
             <div className="absolute inset-0 rounded-3xl"
               style={{
@@ -257,20 +269,18 @@ export default function App() {
           </div>
 
           <p className="text-center text-xs text-pink-400 font-medium">
-            Pilih jaring-jaring yang tepat!
+            Pilih jaring-jaring yang paling tepat!
           </p>
 
-          {question?.options && (
-            <AnswerOptions
-              options={question.options}
-              questionIndex={questionCount}
-              onSelect={answerSingle}
-            />
-          )}
+          <AnswerOptions
+            options={question.options}
+            questionIndex={questionCount}
+            onSelect={answerSingle}
+          />
         </div>
       )}
 
-      {/* FINISH */}
+      {/* FINISH — tidak tampilkan skor, hanya ucapan terima kasih */}
       {state === "finished" && (
         <div className="fixed inset-0 flex items-center justify-center"
           style={{ background: "rgba(253,242,248,0.8)", backdropFilter: "blur(12px)" }}>
@@ -282,15 +292,31 @@ export default function App() {
                 boxShadow: "0 8px 40px rgba(168,85,247,0.2)"
               }}>
               <div className="text-5xl">🎉</div>
-              <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
-                Selesai!
-              </h2>
-              <div className="py-4 rounded-2xl"
-                style={{ background: "linear-gradient(135deg, #fce7f3, #f3e8ff)" }}>
-                <p className="text-lg font-semibold text-pink-600">
-                  Terima kasih sudah bermain 💖
+              <div>
+                <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
+                  Kamu berhasil!
+                </h2>
+                <p className="text-sm text-pink-400 mt-1">
+                  Semua soal sudah kamu selesaikan~
                 </p>
               </div>
+
+              <div className="py-5 px-4 rounded-2xl flex flex-col gap-2"
+                style={{ background: "linear-gradient(135deg, #fce7f3, #f3e8ff)" }}>
+                <p className="text-sm text-pink-500 font-medium">
+                  Jawaban kamu sudah kami catat ✨
+                </p>
+                <p className="text-xs text-pink-400 leading-relaxed">
+                  Terima kasih sudah meluangkan waktu untuk ikut bermain. Jawabanmu sangat berarti untuk penelitian ini!
+                </p>
+                {durasi && (
+                  <div className="mt-2 border-t border-pink-200 pt-3">
+                    <p className="text-xs text-pink-400 mb-1">Waktu yang kamu habiskan</p>
+                    <p className="text-lg font-bold text-purple-500">⏱️ {durasi}</p>
+                  </div>
+                )}
+              </div>
+
               <button
                 onClick={resetGame}
                 className="w-full py-3 rounded-2xl text-white font-bold transition-all active:scale-95"
@@ -298,7 +324,7 @@ export default function App() {
                   background: "linear-gradient(135deg, #ec4899, #a855f7)",
                   boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
                 }}>
-                Main Lagi ⟳
+                Selesai 🎀
               </button>
             </div>
           </div>
@@ -320,14 +346,18 @@ export default function App() {
                 {nextLevel === 1 ? "🌸" : nextLevel === 2 ? "💫" : "🌟"}
               </div>
               <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
-                {nextLevel === 1 ? "Siap Main?" : `Level ${nextLevel}`}
-              </h2>
-              <p className="text-sm text-gray-500">
                 {nextLevel === 1
-                  ? "Perhatikan bentuk kubus dan pilih jaring-jaring yang benar. Semangat! 💖"
+                  ? "Siap mulai petualangan?"
                   : nextLevel === 2
-                    ? "Masuk level 2! Soal mulai menantang!"
-                    : "Level terakhir! Semoga berhasil!"}
+                    ? "Naik level, nih!"
+                    : "Ini dia tantangan terakhir!"}
+              </h2>
+              <p className="text-sm text-gray-500 leading-relaxed">
+                {nextLevel === 1
+                  ? "Perhatikan gambar kubus, lalu pilih jaring-jaring yang paling tepat. Tidak ada benar atau salah yang ditampilkan — cukup percaya instingmu! 💖"
+                  : nextLevel === 2
+                    ? "Level 1 sudah selesai! Soal berikutnya sedikit lebih menantang, tapi kamu pasti bisa~ 🔥"
+                    : "Ini level terakhir! Sebentar lagi selesai — berikan yang terbaik ya! ⭐"}
               </p>
               <button
                 onClick={() => startLevel(nextLevel)}
@@ -336,7 +366,7 @@ export default function App() {
                   background: "linear-gradient(135deg, #ec4899, #a855f7)",
                   boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
                 }}>
-                {nextLevel === 1 ? "Mulai!" : "Lanjut!"}
+                {nextLevel === 1 ? "Yuk, mulai! 🚀" : "Lanjut ➡️"}
               </button>
             </div>
           </div>
