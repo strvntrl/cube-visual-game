@@ -125,7 +125,7 @@ export default function App() {
   }
 
   function startSingle() {
-    if (!hasRequiredInfo()) return alert("Isi nama dan Student ID dulu!");
+    if (!hasRequiredInfo()) return alert("Isi nama dan asal instansi dulu!");
     scoreRef.current = 0;
     answersRef.current = [];
     startTimeRef.current = Date.now(); 
@@ -237,7 +237,7 @@ export default function App() {
               onChange={e => setUsername(e.target.value)}
             />
             <input
-              placeholder="🎓 Student ID"
+              placeholder="🎓 Asal Instansi"
               className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
               style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
               onFocus={e => e.target.style.borderColor = "#ec4899"}
