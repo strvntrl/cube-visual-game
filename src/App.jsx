@@ -55,7 +55,6 @@ export default function App() {
   }
 
   // ================= AUTO NEXT setelah jawab =================
-  // Tidak ada result popup, langsung lanjut setelah 400ms
   useEffect(() => {
     if (pendingNext === null) return;
     const t = setTimeout(() => {
@@ -116,16 +115,13 @@ export default function App() {
   function answerSingle(i) {
     const correct = question.options[i].isCorrect;
 
-    // simpan jawaban — data tetap dicatat meski tidak ditampilkan ke pemain
     answersRef.current.push({
       level, soal: questionCount + 1,
       jawaban: question.options[i].id, benar: correct,
     });
 
-    // hitung skor di background
     if (correct) scoreRef.current += 1;
 
-    // langsung lanjut tanpa popup benar/salah
     setPendingNext(correct);
   }
 
@@ -307,14 +303,8 @@ export default function App() {
                   Jawaban kamu sudah kami catat ✨
                 </p>
                 <p className="text-xs text-pink-400 leading-relaxed">
-                  Terima kasih sudah meluangkan waktu untuk ikut bermain. Jawabanmu sangat berarti untuk penelitian ini!
+                  Terima kasih sudah meluangkan waktu untuk bermain. Jawabanmu sangat berarti untuk penelitian ini!
                 </p>
-                {durasi && (
-                  <div className="mt-2 border-t border-pink-200 pt-3">
-                    <p className="text-xs text-pink-400 mb-1">Waktu yang kamu habiskan</p>
-                    <p className="text-lg font-bold text-purple-500">⏱️ {durasi}</p>
-                  </div>
-                )}
               </div>
 
               <button
@@ -347,17 +337,17 @@ export default function App() {
               </div>
               <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
                 {nextLevel === 1
-                  ? "Siap mulai petualangan?"
+                  ? "Siap Main?"
                   : nextLevel === 2
                     ? "Naik level, nih!"
-                    : "Ini dia tantangan terakhir!"}
+                    : "Tantangan terakhir!"}
               </h2>
               <p className="text-sm text-gray-500 leading-relaxed">
                 {nextLevel === 1
-                  ? "Perhatikan gambar kubus, lalu pilih jaring-jaring yang paling tepat. Tidak ada benar atau salah yang ditampilkan — cukup percaya instingmu! 💖"
+                  ? "Perhatikan bentuk kubus dan pilih jaring-jaring yang benar. Semangat! 💖"
                   : nextLevel === 2
-                    ? "Level 1 sudah selesai! Soal berikutnya sedikit lebih menantang, tapi kamu pasti bisa~ 🔥"
-                    : "Ini level terakhir! Sebentar lagi selesai — berikan yang terbaik ya! ⭐"}
+                    ? "Masuk level 2! Soal mulai menantang!"
+                    : "Level terakhir! Semoga berhasil!"}
               </p>
               <button
                 onClick={() => startLevel(nextLevel)}
@@ -366,7 +356,7 @@ export default function App() {
                   background: "linear-gradient(135deg, #ec4899, #a855f7)",
                   boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
                 }}>
-                {nextLevel === 1 ? "Yuk, mulai! 🚀" : "Lanjut ➡️"}
+                {nextLevel === 1 ? "Yuk, mulai!" : "Lanjut"}
               </button>
             </div>
           </div>
