@@ -4,6 +4,8 @@
 
 body {
   @apply bg-gradient-to-br from-[#fff0f6] to-[#f3e8ff];
+  overflow-x: hidden;
+  font-family: 'Inter', sans-serif;
 }
 
 .card {

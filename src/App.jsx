@@ -37,6 +37,7 @@ export default function App() {
   const [showLevelPopup, setShowLevelPopup] = useState(false);
   const [nextLevel, setNextLevel] = useState(null);
   const [durasi, setDurasi] = useState("");
+  const [showWarningPopup, setShowWarningPopup] = useState(false);
 
   const usernameRef = useRef("");
   const studentIdRef = useRef("");
@@ -100,10 +101,15 @@ export default function App() {
   }
 
   function startSingle() {
-    if (!hasRequiredInfo()) return alert("Ups! Nama dan asal instansi belum diisi nih~");
+    if (!hasRequiredInfo()) {
+      setShowWarningPopup(true);
+      return;
+    }
+
     scoreRef.current = 0;
     answersRef.current = [];
     startTimeRef.current = Date.now();
+
     setLevel(1);
     setQuestionCount(0);
     setDurasi("");
@@ -178,62 +184,154 @@ export default function App() {
 
       {/* FORM */}
       {state === "form" && (
-        <div className="relative w-full max-w-sm">
-          <div className="absolute -top-3 -left-3 w-full h-full rounded-3xl bg-pink-200 opacity-50" />
-          <div className="relative rounded-3xl p-8 flex flex-col gap-5"
+        <div className="relative w-full max-w-md mx-auto px-4">
+
+          {/* Glow */}
+          <div
+            className="absolute -top-10 -left-10 w-40 h-40 rounded-full blur-3xl opacity-30"
+            style={{ background: "#f9a8d4" }}
+          />
+          <div
+            className="absolute -bottom-10 -right-10 w-44 h-44 rounded-full blur-3xl opacity-30"
+            style={{ background: "#c084fc" }}
+          />
+
+          {/* Card */}
+          <div
+            className="relative overflow-hidden rounded-[2rem] p-8 sm:p-10"
             style={{
-              background: "rgba(255,255,255,0.85)",
-              backdropFilter: "blur(20px)",
-              boxShadow: "0 8px 40px rgba(236,72,153,0.15)"
-            }}>
-            <div className="text-center">
-              <div className="text-4xl mb-2">🎀</div>
-              <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
-                Halo, Siapa Kamu?
-              </h2>
-              <p className="text-sm text-pink-400 mt-1">Kenalin diri dulu sebelum mulai main ya~</p>
+              background: "rgba(255,255,255,0.88)",
+              backdropFilter: "blur(18px)",
+              boxShadow: "0 10px 50px rgba(236,72,153,0.18)"
+            }}
+          >
+
+            {/* Decorative */}
+            <div className="absolute top-5 left-5 text-pink-300 text-xl animate-pulse">
+              ✦
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="absolute top-6 right-6 text-purple-300 text-lg animate-pulse">
+              ✧
+            </div>
+
+            {/* Header */}
+            <div className="text-center mb-7">
+              <div className="mb-4 flex justify-center">
+                <img
+                  src="/icon.png"
+                  alt="CubeMind"
+                  className="w-24 object-contain scale-110"
+                />
+              </div>
+              <h2
+                className="text-4xl font-black tracking-tight"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #ec4899, #a855f7)",
+                  WebkitBackgroundClip: "text",
+                  WebkitTextFillColor: "transparent",
+                  fontFamily: "Georgia, serif"
+                }}
+              >
+                CubeMind
+              </h2>
+              <p className="text-sm text-pink-400 mt-3">
+                Isi dulu ya sebelum main!
+              </p>
+            </div>
+
+            {/* Inputs */}
+            <div className="flex flex-col gap-4">
               <input
-                placeholder="✏️ Nama lengkap kamu"
-                className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
-                style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
-                onFocus={e => e.target.style.borderColor = "#ec4899"}
-                onBlur={e => e.target.style.borderColor = "#fbcfe8"}
+                placeholder="✏️ Nama kamu"
+                className="w-full px-5 py-4 rounded-2xl text-gray-700 outline-none transition-all"
+                style={{
+                  background: "#fff",
+                  border: "2px solid #fbcfe8",
+                  boxShadow: "0 4px 12px rgba(236,72,153,0.05)"
+                }}
+                onFocus={e => {
+                  e.target.style.borderColor = "#ec4899";
+                  e.target.style.boxShadow =
+                    "0 0 0 4px rgba(236,72,153,0.12)";
+                }}
+                onBlur={e => {
+                  e.target.style.borderColor = "#fbcfe8";
+                  e.target.style.boxShadow =
+                    "0 4px 12px rgba(236,72,153,0.05)";
+                }}
                 value={username}
                 onChange={e => setUsername(e.target.value)}
               />
+
               <input
                 placeholder="🏫 Asal instansi"
-                className="w-full px-4 py-3 rounded-2xl text-gray-700 text-sm outline-none"
-                style={{ background: "#fdf2f8", border: "2px solid #fbcfe8", transition: "border-color 0.2s" }}
-                onFocus={e => e.target.style.borderColor = "#ec4899"}
-                onBlur={e => e.target.style.borderColor = "#fbcfe8"}
+                className="w-full px-5 py-4 rounded-2xl text-gray-700 outline-none transition-all"
+                style={{
+                  background: "#fff",
+                  border: "2px solid #fbcfe8",
+                  boxShadow: "0 4px 12px rgba(236,72,153,0.05)"
+                }}
+                onFocus={e => {
+                  e.target.style.borderColor = "#ec4899";
+                  e.target.style.boxShadow =
+                    "0 0 0 4px rgba(236,72,153,0.12)";
+                }}
+                onBlur={e => {
+                  e.target.style.borderColor = "#fbcfe8";
+                  e.target.style.boxShadow =
+                    "0 4px 12px rgba(236,72,153,0.05)";
+                }}
                 value={studentId}
                 onChange={e => setStudentId(e.target.value)}
               />
             </div>
-            <button
-              onClick={startSingle}
-              className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
-              style={{
-                background: "linear-gradient(135deg, #ec4899, #a855f7)",
-                boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
-              }}>
-              Ayo Mulai! 🚀
-            </button>
-            <button onClick={() => setState("home")}
-              className="text-sm text-pink-400 text-center hover:text-pink-600 transition-colors">
-              ← Balik ke halaman awal
-            </button>
+
+            {/* Button */}
+            <div className="flex flex-col gap-3 mt-2">
+              <button
+                onClick={startSingle}
+                className="group relative mt-6 w-full overflow-hidden rounded-2xl py-4 text-white font-bold text-lg transition-all duration-300 active:scale-95"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #ec4899, #a855f7)",
+                  boxShadow:
+                    "0 8px 25px rgba(236,72,153,0.35)"
+                }}
+              >
+                <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+                <span className="relative flex items-center justify-center gap-2">
+                  Selanjutnya
+                </span>
+              </button>
+
+              {/* Back */}
+              <button
+                onClick={() => setState("home")}
+                className="w-full py-3 rounded-2xl font-semibold text-sm sm:text-base border-2 transition-all"
+                      style={{
+                        borderColor: "#f9a8d4",
+                        color: "#ec4899",
+                        background: "rgba(255,255,255,0.9)"
+                      }}
+              >
+                ← Kembali
+              </button>
+            </div>
           </div>
         </div>
       )}
 
       {/* GAME — tidak ada timer UI, tidak ada skor */}
       {state === "playing" && question && (
-        <div className="flex flex-col items-center gap-4 w-full max-w-2xl px-2">
-
+      <div
+        className="relative w-full max-w-2xl rounded-[2rem] p-6 sm:p-8 flex flex-col items-center gap-5"
+        style={{
+          background: "rgba(255,255,255,0.75)",
+          backdropFilter: "blur(18px)",
+          boxShadow: "0 10px 50px rgba(236,72,153,0.12)"
+        }}
+      >
           {/* hanya tampilkan level */}
           <div className="w-full flex items-center justify-center px-2">
             <span className="text-xs font-bold px-4 py-1.5 rounded-full text-white"
@@ -290,21 +388,24 @@ export default function App() {
               <div className="text-5xl">🎉</div>
               <div>
                 <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
-                  Kamu berhasil!
+                  Finish!
                 </h2>
                 <p className="text-sm text-pink-400 mt-1">
-                  Semua soal sudah kamu selesaikan~
+                  Semua soal sudah terselesaikan~
                 </p>
               </div>
 
               <div className="py-5 px-4 rounded-2xl flex flex-col gap-2"
                 style={{ background: "linear-gradient(135deg, #fce7f3, #f3e8ff)" }}>
-                <p className="text-sm text-pink-500 font-medium">
+                {/* <p className="text-sm text-pink-500 font-medium">
                   Jawaban kamu sudah kami catat ✨
+                </p> */}
+                <p className="text-sm text-pink-500 font-medium">
+                  Terima kasih sudah meluangkan waktu untuk bermain!
                 </p>
-                <p className="text-xs text-pink-400 leading-relaxed">
+                {/* <p className="text-xs text-pink-400 leading-relaxed">
                   Terima kasih sudah meluangkan waktu untuk bermain. Jawabanmu sangat berarti untuk penelitian ini!
-                </p>
+                </p> */}
               </div>
 
               <button
@@ -323,46 +424,135 @@ export default function App() {
 
       {/* LEVEL POPUP */}
       {showLevelPopup && (
-        <div className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ background: "rgba(253,242,248,0.8)", backdropFilter: "blur(12px)" }}>
+        <div
+          className="fixed inset-0 flex items-center justify-center z-50"
+          style={{
+            background: "rgba(253,242,248,0.8)",
+            backdropFilter: "blur(12px)"
+          }}
+        >
           <div className="relative w-full max-w-sm mx-4">
             <div className="absolute -top-2 -right-2 w-full h-full rounded-3xl bg-pink-200 opacity-40" />
-            <div className="relative rounded-3xl p-8 text-center flex flex-col gap-4"
+
+            <div
+              className="relative rounded-3xl p-8 text-center flex flex-col gap-4"
               style={{
                 background: "rgba(255,255,255,0.95)",
                 boxShadow: "0 8px 40px rgba(236,72,153,0.25)"
-              }}>
+              }}
+            >
               <div className="text-4xl">
                 {nextLevel === 1 ? "🌸" : nextLevel === 2 ? "💫" : "🌟"}
               </div>
-              <h2 className="text-2xl font-bold text-pink-600" style={{ fontFamily: "Georgia, serif" }}>
+
+              <h2
+                className="text-2xl font-bold text-pink-600"
+                style={{ fontFamily: "Georgia, serif" }}
+              >
                 {nextLevel === 1
                   ? "Siap Main?"
                   : nextLevel === 2
-                    ? "Naik level, nih!"
-                    : "Tantangan terakhir!"}
+                  ? "Naik level, nih!"
+                  : "Level terakhir, nih!"}
               </h2>
+
               <p className="text-sm text-gray-500 leading-relaxed">
                 {nextLevel === 1
-                  ? "Perhatikan bentuk kubus dan pilih jaring-jaring yang benar. Semangat! 💖"
+                  ? "Perhatikan bentuk kubus dan pilih jaring-jaring yang benar. Good Luck! 💖"
                   : nextLevel === 2
-                    ? "Masuk level 2! Soal mulai menantang!"
-                    : "Level terakhir! Semoga berhasil!"}
+                  ? "Soal mulai menantang!"
+                  : "Semangat!"}
               </p>
-              <button
-                onClick={() => startLevel(nextLevel)}
-                className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
-                style={{
-                  background: "linear-gradient(135deg, #ec4899, #a855f7)",
-                  boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
-                }}>
-                {nextLevel === 1 ? "Yuk, mulai!" : "Lanjut"}
-              </button>
+
+              {/* BUTTONS */}
+              <div className="flex flex-col gap-3 mt-2">
+
+                {/* START */}
+                <button
+                  onClick={() => startLevel(nextLevel)}
+                  className="w-full py-3 rounded-2xl text-white font-bold text-lg transition-all active:scale-95"
+                  style={{
+                    background:
+                      "linear-gradient(135deg, #ec4899, #a855f7)",
+                    boxShadow:
+                      "0 4px 20px rgba(236,72,153,0.4)"
+                  }}
+                >
+                  {nextLevel === 1 ? "Yuk, mulai!" : "Lanjut"}
+                </button>
+
+                {/* BACK */}
+                {nextLevel === 1 && (
+                  <button
+                    onClick={() => {
+                      setShowLevelPopup(false);
+                      setState("form");
+                    }}
+                    className="w-full py-3 rounded-2xl font-semibold text-sm sm:text-base border-2 transition-all"
+                    style={{
+                      borderColor: "#f9a8d4",
+                      color: "#ec4899",
+                      background: "rgba(255,255,255,0.9)"
+                    }}
+                  >
+                    ← Kembali mengisi data
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* WARNING POPUP */}
+      {showWarningPopup && (
+        <div
+          className="fixed inset-0 flex items-center justify-center z-[999]"
+          style={{
+            background: "rgba(253,242,248,0.75)",
+            backdropFilter: "blur(10px)"
+          }}
+        >
+          <div className="relative w-full max-w-xs mx-4">
+            <div
+              className="absolute -top-2 -left-2 w-full h-full rounded-3xl opacity-40"
+              style={{
+                background: "linear-gradient(135deg, #f9a8d4, #c084fc)"
+              }}
+            />
+            <div
+              className="relative rounded-3xl p-7 text-center flex flex-col gap-4"
+              style={{
+                background: "rgba(255,255,255,0.96)",
+                boxShadow: "0 8px 40px rgba(236,72,153,0.25)"
+              }}
+            >
+              <div className="text-5xl">⚠️</div>
+              <div>
+                <h2
+                  className="text-2xl font-bold text-pink-600"
+                  style={{ fontFamily: "Georgia, serif" }}
+                >
+                  Data belum lengkap
+                </h2>
+                <p className="text-sm text-gray-500 mt-2 leading-relaxed">
+                  Isi nama dan asal instansi terlebih dahulu sebelum mulai main ya~
+                </p>
+              </div>
+              <button
+                onClick={() => setShowWarningPopup(false)}
+                className="w-full py-3 rounded-2xl text-white font-bold transition-all active:scale-95"
+                style={{
+                  background: "linear-gradient(135deg, #ec4899, #a855f7)",
+                  boxShadow: "0 4px 20px rgba(236,72,153,0.4)"
+                }}
+              >
+                Oke
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
