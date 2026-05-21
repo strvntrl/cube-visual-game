@@ -219,7 +219,7 @@ export default function App() {
               <div className="mb-4 flex justify-center">
                 <img
                   src="/icon.png"
-                  alt="CubeMind"
+                  alt="Foldables"
                   className="w-24 object-contain scale-110"
                 />
               </div>
@@ -233,7 +233,7 @@ export default function App() {
                   fontFamily: "Georgia, serif"
                 }}
               >
-                CubeMind
+                Foldables!
               </h2>
               <p className="text-sm text-pink-400 mt-3">
                 Isi dulu ya sebelum main!

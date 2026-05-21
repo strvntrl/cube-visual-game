@@ -47,7 +47,7 @@ export default function HomeScreen({ onStart }) {
                 <div className="mb-5 sm:mb-6 flex justify-center items-center">
                     <img
                         src="/icon.png"
-                        alt="CubeMind Logo"
+                        alt="Foldables Logo"
                         className="
                             w-24 h-24
                             sm:w-28 sm:h-28
@@ -61,9 +61,9 @@ export default function HomeScreen({ onStart }) {
                 <div className="mb-3 sm:mb-4">
                     <h1
                         className="
-                            text-4xl
-                            sm:text-5xl
-                            md:text-6xl
+                            text-3xl
+                            sm:text-4xl
+                            md:text-5xl
                             font-black
                             tracking-tight
                             break-words
@@ -76,7 +76,7 @@ export default function HomeScreen({ onStart }) {
                             fontFamily: "Georgia, serif"
                         }}
                     >
-                        CubeMind
+                        Foldables!
                     </h1>
                 </div>
 
