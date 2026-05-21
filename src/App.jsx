@@ -236,7 +236,7 @@ export default function App() {
                 Foldables!
               </h2>
               <p className="text-sm text-pink-400 mt-3">
-                Isi dulu ya sebelum main!
+                Isi dulu sebelum main ya!
               </p>
             </div>
 
