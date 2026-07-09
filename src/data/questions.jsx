@@ -147,12 +147,12 @@ export const questions = [
   {
     id: 14,
     level: 1,
-    cubeImage: "/images/level1/soal4-kubus.png",
+    cubeImage: "/images/level1/soal14-kubus.png",
     options: [
-      { id: "A", image: "/images/level1/soal4-A.png", isCorrect: true  },
-      { id: "B", image: "/images/level1/soal4-B.png", isCorrect: false },
-      { id: "C", image: "/images/level1/soal4-C.png", isCorrect: false },
-      { id: "D", image: "/images/level1/soal4-D.png", isCorrect: false },
+      { id: "A", image: "/images/level1/soal14-A.png", isCorrect: true  },
+      { id: "B", image: "/images/level1/soal14-B.png", isCorrect: false },
+      { id: "C", image: "/images/level1/soal14-C.png", isCorrect: false },
+      { id: "D", image: "/images/level1/soal14-D.png", isCorrect: false },
     ],
   },
   {
@@ -315,12 +315,12 @@ export const questions = [
   {
     id: 14,
     level: 2,
-    cubeImage: "/images/level2/soal4-kubus.png",
+    cubeImage: "/images/level2/soal14-kubus.png",
     options: [
-      { id: "A", image: "/images/level2/soal4-A.png", isCorrect: false },
-      { id: "B", image: "/images/level2/soal4-B.png", isCorrect: false },
-      { id: "C", image: "/images/level2/soal4-C.png", isCorrect: true  },
-      { id: "D", image: "/images/level2/soal4-D.png", isCorrect: false },
+      { id: "A", image: "/images/level2/soal14-A.png", isCorrect: false },
+      { id: "B", image: "/images/level2/soal14-B.png", isCorrect: false },
+      { id: "C", image: "/images/level2/soal14-C.png", isCorrect: true  },
+      { id: "D", image: "/images/level2/soal14-D.png", isCorrect: false },
     ],
   },
   {
@@ -483,12 +483,12 @@ export const questions = [
   {
     id: 14,
     level: 3,
-    cubeImage: "/images/level3/soal4-kubus.png",
+    cubeImage: "/images/level3/soal14-kubus.png",
     options: [
-      { id: "A", image: "/images/level3/soal4-A.png", isCorrect: true  },
-      { id: "B", image: "/images/level3/soal4-B.png", isCorrect: false },
-      { id: "C", image: "/images/level3/soal4-C.png", isCorrect: false },
-      { id: "D", image: "/images/level3/soal4-D.png", isCorrect: false },
+      { id: "A", image: "/images/level3/soal14-A.png", isCorrect: true  },
+      { id: "B", image: "/images/level3/soal14-B.png", isCorrect: false },
+      { id: "C", image: "/images/level3/soal14-C.png", isCorrect: false },
+      { id: "D", image: "/images/level3/soal14-D.png", isCorrect: false },
     ],
   },
   {
