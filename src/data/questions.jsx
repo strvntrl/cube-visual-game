@@ -127,8 +127,8 @@ export const questions = [
     level: 1,
     cubeImage: "/images/level1/soal12-kubus.png",
     options: [
-      { id: "A", image: "/images/level1/soal12-A.png", isCorrect: false },
-      { id: "B", image: "/images/level1/soal12-B.png", isCorrect: true  },
+      { id: "A", image: "/images/level1/soal12-A.png", isCorrect: true  },
+      { id: "B", image: "/images/level1/soal12-B.png", isCorrect: false },
       { id: "C", image: "/images/level1/soal12-C.png", isCorrect: false },
       { id: "D", image: "/images/level1/soal12-D.png", isCorrect: false },
     ],
@@ -140,8 +140,8 @@ export const questions = [
     options: [
       { id: "A", image: "/images/level1/soal13-A.png", isCorrect: false },
       { id: "B", image: "/images/level1/soal13-B.png", isCorrect: false },
-      { id: "C", image: "/images/level1/soal13-C.png", isCorrect: true  },
-      { id: "D", image: "/images/level1/soal13-D.png", isCorrect: false },
+      { id: "C", image: "/images/level1/soal13-C.png", isCorrect: false },
+      { id: "D", image: "/images/level1/soal13-D.png", isCorrect: true  },
     ],
   },
   {
@@ -149,9 +149,9 @@ export const questions = [
     level: 1,
     cubeImage: "/images/level1/soal4-kubus.png",
     options: [
-      { id: "A", image: "/images/level1/soal4-A.png", isCorrect: false },
+      { id: "A", image: "/images/level1/soal4-A.png", isCorrect: true  },
       { id: "B", image: "/images/level1/soal4-B.png", isCorrect: false },
-      { id: "C", image: "/images/level1/soal4-C.png", isCorrect: true  },
+      { id: "C", image: "/images/level1/soal4-C.png", isCorrect: false },
       { id: "D", image: "/images/level1/soal4-D.png", isCorrect: false },
     ],
   },
@@ -161,8 +161,8 @@ export const questions = [
     cubeImage: "/images/level1/soal15-kubus.png",   
     options: [
       { id: "A", image: "/images/level1/soal15-A.png", isCorrect: false },
-      { id: "B", image: "/images/level1/soal15-B.png", isCorrect: false },
-      { id: "C", image: "/images/level1/soal15-C.png", isCorrect: true  },
+      { id: "B", image: "/images/level1/soal15-B.png", isCorrect: true  },
+      { id: "C", image: "/images/level1/soal15-C.png", isCorrect: false },
       { id: "D", image: "/images/level1/soal15-D.png", isCorrect: false },
     ],
   },
@@ -295,8 +295,8 @@ export const questions = [
     level: 2,
     cubeImage: "/images/level2/soal12-kubus.png",
     options: [
-      { id: "A", image: "/images/level2/soal12-A.png", isCorrect: true  },
-      { id: "B", image: "/images/level2/soal12-B.png", isCorrect: false },
+      { id: "A", image: "/images/level2/soal12-A.png", isCorrect: false },
+      { id: "B", image: "/images/level2/soal12-B.png", isCorrect: true  },
       { id: "C", image: "/images/level2/soal12-C.png", isCorrect: false },
       { id: "D", image: "/images/level2/soal12-D.png", isCorrect: false },
     ],
